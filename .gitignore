@@ -1,0 +1,48 @@
+# Private data - NEVER commit
+config.json
+.conversation-history.json
+.imessage-state.json
+.manager-registry.json
+.human-tasks.json
+projects.json
+external-projects.json
+
+# Sessions (contain private conversations)
+sessions/
+responder-sessions/
+manager-sessions/
+
+# Runtime state
+.state/
+*.lock
+*.pid
+.bridge.lock
+
+# Logs
+logs/
+*.log
+
+# Build output
+dist/
+.next/
+node_modules/
+
+# Projects (user-specific)
+projects/
+prds/tasks.json
+output/
+
+# OS/IDE
+.DS_Store
+.idea/
+.vscode/
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Temp files
+*.tmp
+*.swp
+*~

@@ -1,0 +1,39 @@
+{
+  "project": {
+    "name": "example-project",
+    "description": "An example project showing the task format",
+    "outputDir": "~/Documents/example-project"
+  },
+  "tasks": [
+    {
+      "id": "task-001",
+      "name": "Set up project structure",
+      "description": "Initialize the project with basic structure and dependencies",
+      "requirements": [
+        "Create package.json with required dependencies",
+        "Set up TypeScript configuration",
+        "Create initial directory structure"
+      ],
+      "testCommand": "npm test",
+      "status": "pending",
+      "testsPassing": false,
+      "workerNotes": "",
+      "managerReview": ""
+    },
+    {
+      "id": "task-002",
+      "name": "Implement core functionality",
+      "description": "Build the main feature of the application",
+      "requirements": [
+        "Implement the primary business logic",
+        "Add error handling",
+        "Write unit tests"
+      ],
+      "testCommand": "npm test",
+      "status": "pending",
+      "testsPassing": false,
+      "workerNotes": "",
+      "managerReview": ""
+    }
+  ]
+}
