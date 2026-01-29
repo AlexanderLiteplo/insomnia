@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Claude Dashboard',
-  description: 'Monitor Claude managers, orchestrators, and iMessage bridge',
+  title: 'Amphetamine',
+  description: 'Autonomous AI agents that never sleep',
 };
 
 export default function RootLayout({

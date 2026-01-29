@@ -124,6 +124,22 @@ export function isClaudeMessage(text: string): boolean {
     /managerReview.*empty/i,
     /should (finish|be approved|pick it up)/i,
     /any minute/i,
+    // Security audit / manager output patterns (prevent self-messaging loops)
+    /^Action:\s*(Rotate|Update|Change|Remove|Add|Fix)/i,  // Action items from Claude
+    /^(Scanned|Scanning|Checked|Checking)\s*(repos?|repositories|files?|directories?)/i,
+    /^\d+\.\s*(Scanned|Found|Fixed|Updated|Checked)/i,  // Numbered lists from Claude
+    /Human [Tt]ask (created|completed|added)/i,
+    /htask_\d+/i,  // Human task IDs
+    /I'?ve (created|set up|configured|fixed|updated|added)/i,
+    /^##\s*(Summary|Security|Results|Findings)/i,  // Markdown headers from Claude
+    /^\*\*[A-Z]/,  // Bold markdown (likely Claude's formatting)
+    /Queued to \w+.*\d+ in queue/i,  // Queue confirmations
+    /Creating new manager/i,
+    /localhost:\d{4}/i,  // Dashboard URLs Claude mentions
+    /\.env\.(production|local|development)/i,  // Env file references in reports
+    /credentials were (exposed|found|committed)/i,
+    /Rotate.*password.*ASAP/i,
+    /Security (Audit|Tip|reminder)/i,
   ];
 
   for (const pattern of claudeResponsePatterns) {

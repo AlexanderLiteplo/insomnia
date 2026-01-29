@@ -1,4 +1,4 @@
-# Contributing to Claude Manager-Worker
+# Contributing to Amphetamine
 
 Thank you for your interest in contributing! This document provides guidelines for contributing to the project.
 
@@ -17,8 +17,8 @@ Thank you for your interest in contributing! This document provides guidelines f
 
 ```bash
 # Clone your fork
-git clone https://github.com/YOUR_USERNAME/claude-manager-worker.git
-cd claude-manager-worker
+git clone https://github.com/YOUR_USERNAME/amphetamine.git
+cd amphetamine
 
 # Make scripts executable
 chmod +x scripts/*.sh

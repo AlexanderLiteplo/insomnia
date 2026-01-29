@@ -3,7 +3,9 @@ config.json
 .conversation-history.json
 .imessage-state.json
 .manager-registry.json
+.manager-registry-cleaned.json
 .human-tasks.json
+.sent-messages.json
 projects.json
 external-projects.json
 

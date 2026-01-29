@@ -5,7 +5,7 @@
   "main": "dist/server.js",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/server.js",
+    "start": "./scripts/start.sh",
     "dev": "tsc --watch",
     "send": "node dist/send-cli.js",
     "managers": "node dist/managers-cli.js",

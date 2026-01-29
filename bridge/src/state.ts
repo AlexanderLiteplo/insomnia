@@ -4,6 +4,7 @@ import { State } from './types';
 import { DATA_DIR } from './config';
 
 const STATE_FILE = path.join(DATA_DIR, '.imessage-state.json');
+const SENT_MESSAGES_FILE = path.join(DATA_DIR, '.sent-messages.json');
 
 let lastMessageRowId = 0;
 
@@ -32,13 +33,51 @@ export function setLastRowId(rowId: number): void {
 }
 
 // Track full message content for fuzzy matching
-const recentSentMessages: Map<string, number> = new Map();
+// IMPORTANT: Use file-based storage so send-cli.js (separate process) shares state with server
 const SENT_HASH_EXPIRY_MS = 120000; // 2 minutes
 
 // Track recently PROCESSED incoming messages to prevent duplicate agent spawns
 // This handles iCloud syncing the same message with different ROWIDs
 const recentProcessedMessages: Map<string, number> = new Map();
 const PROCESSED_EXPIRY_MS = 30000; // 30 seconds
+
+// Load sent messages from file (shared across processes)
+function loadSentMessages(): Map<string, number> {
+  try {
+    if (fs.existsSync(SENT_MESSAGES_FILE)) {
+      const data = JSON.parse(fs.readFileSync(SENT_MESSAGES_FILE, 'utf8'));
+      const now = Date.now();
+      // Filter out expired entries while loading
+      const filtered: Record<string, number> = {};
+      for (const [key, timestamp] of Object.entries(data)) {
+        if (now - (timestamp as number) < SENT_HASH_EXPIRY_MS) {
+          filtered[key] = timestamp as number;
+        }
+      }
+      return new Map(Object.entries(filtered));
+    }
+  } catch {
+    // Ignore errors, return empty map
+  }
+  return new Map();
+}
+
+// Save sent messages to file (shared across processes)
+function saveSentMessages(messages: Map<string, number>): void {
+  try {
+    const obj: Record<string, number> = {};
+    const now = Date.now();
+    for (const [key, timestamp] of messages.entries()) {
+      // Only save non-expired entries
+      if (now - timestamp < SENT_HASH_EXPIRY_MS) {
+        obj[key] = timestamp;
+      }
+    }
+    fs.writeFileSync(SENT_MESSAGES_FILE, JSON.stringify(obj, null, 2));
+  } catch {
+    // Ignore write errors
+  }
+}
 
 // Normalize text for comparison
 function normalizeText(text: string): string {
@@ -51,23 +90,27 @@ function normalizeText(text: string): string {
 
 export function markMessageSent(text: string): void {
   const normalized = normalizeText(text);
-  recentSentMessages.set(normalized, Date.now());
+  const now = Date.now();
+
+  // Load current state from file (shared with other processes)
+  const recentSentMessages = loadSentMessages();
+
+  recentSentMessages.set(normalized, now);
   // Also store first 30 chars as partial key for fragment matching
   if (normalized.length > 30) {
-    recentSentMessages.set(normalized.substring(0, 30), Date.now());
+    recentSentMessages.set(normalized.substring(0, 30), now);
   }
-  // Auto-expire after 2 minutes
-  setTimeout(() => {
-    recentSentMessages.delete(normalized);
-    if (normalized.length > 30) {
-      recentSentMessages.delete(normalized.substring(0, 30));
-    }
-  }, SENT_HASH_EXPIRY_MS);
+
+  // Save back to file
+  saveSentMessages(recentSentMessages);
 }
 
 export function wasRecentlySent(text: string): boolean {
   const normalized = normalizeText(text);
   const now = Date.now();
+
+  // Load current state from file (shared with other processes)
+  const recentSentMessages = loadSentMessages();
 
   // Check exact match
   if (recentSentMessages.has(normalized)) {

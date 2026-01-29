@@ -1,15 +1,15 @@
-# Claude Automation System
+# Amphetamine
 
-A unified system for running autonomous Claude agents via iMessage with project orchestration capabilities.
+Autonomous AI agents that never sleep. They work while you don't.
 
 ## Overview
 
-This system combines two powerful components:
+Amphetamine is a system of tireless AI agents that operate autonomously via iMessage, building your projects around the clock without human intervention.
 
-1. **iMessage Bridge** - Receive and respond to iMessages using Claude agents
-2. **Orchestrator** - Autonomous worker/manager system for building projects
+1. **iMessage Bridge** - Command your agents via text. They respond, they execute, they deliver.
+2. **Orchestrator** - Worker agents implement. Manager agents review. Skills compound. Progress is relentless.
 
-Together, they enable you to communicate with Claude via iMessage and have it autonomously work on complex, multi-step projects.
+Send a message. Walk away. Come back to shipped code.
 
 ## Architecture
 
@@ -54,8 +54,8 @@ Together, they enable you to communicate with Claude via iMessage and have it au
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/claude-automation-system.git
-cd claude-automation-system
+git clone https://github.com/AlexanderLiteplo/amphetamine.git
+cd amphetamine
 
 # Install bridge dependencies
 cd bridge

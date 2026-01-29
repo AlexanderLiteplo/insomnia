@@ -11,21 +11,56 @@
   --success: #22c55e;
   --warning: #f59e0b;
   --error: #ef4444;
+
+  /* Muted neon colors */
+  --neon-green: #00cc88;
+  --neon-pink: #cc0088;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
 }
 
-@keyframes pulse-glow {
+/* Tamagotchi-style animations - calm and gentle */
+@keyframes tamagotchi-idle {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
+
+.tamagotchi-idle {
+  animation: tamagotchi-idle 3s ease-in-out infinite;
+}
+
+@keyframes tamagotchi-active {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  25% {
+    transform: translateY(-1px);
+  }
+  75% {
+    transform: translateY(-1px);
+  }
+}
+
+.tamagotchi-active {
+  animation: tamagotchi-active 1s ease-in-out infinite;
+}
+
+/* Simple pulse - no glow */
+@keyframes pulse-simple {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  50% { opacity: 0.7; }
 }
 
-.pulse-glow {
-  animation: pulse-glow 2s ease-in-out infinite;
+.pulse-simple {
+  animation: pulse-simple 2s ease-in-out infinite;
 }
 
 @keyframes spin {
@@ -34,5 +69,54 @@ body {
 }
 
 .spin {
-  animation: spin 1s linear infinite;
+  animation: spin 2s linear infinite;
+}
+
+/* Connection line animation - slower */
+@keyframes flow-dash {
+  0% {
+    stroke-dashoffset: 16;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+.animate-dash {
+  animation: flow-dash 1s linear infinite;
+}
+
+/* Remove glow effects - just simple borders */
+.glow-green,
+.glow-green-sm,
+.glow-pink,
+.glow-pink-sm {
+  box-shadow: none;
+}
+
+.text-glow-green,
+.text-glow-pink {
+  text-shadow: none;
+}
+
+.border-glow-green {
+  border-color: var(--neon-green);
+  box-shadow: none;
+}
+
+.border-glow-pink {
+  border-color: var(--neon-pink);
+  box-shadow: none;
+}
+
+/* Status dot - simple */
+@keyframes status-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Retro pixel font feel */
+.font-pixel {
+  font-family: 'Monaco', 'Menlo', monospace;
+  letter-spacing: 0.5px;
 }

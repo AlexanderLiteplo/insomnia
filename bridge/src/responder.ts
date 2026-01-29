@@ -16,6 +16,7 @@ import {
   getAllManagers,
   setManagerProcess,
 } from './manager-registry';
+import { loadHistory, formatForPrompt, addMessage } from './history';
 import { spawnManager, interruptManager, isManagerRunning } from './manager-agent';
 
 const RESPONDER_SESSIONS_DIR = path.join(DATA_DIR, 'responder-sessions');
@@ -35,7 +36,7 @@ interface ResponderResult {
 }
 
 // Quick classifier prompt - runs fast to ACK quickly
-function getClassifierPrompt(message: string, managers: Manager[]): string {
+function getClassifierPrompt(message: string, managers: Manager[], conversationHistory: string): string {
   const managerList = managers.length > 0
     ? managers.map(m => `- "${m.name}" (${m.status}): ${m.description} | Topics: ${m.topics.join(', ')}`).join('\n')
     : 'No managers currently active.';
@@ -44,7 +45,7 @@ function getClassifierPrompt(message: string, managers: Manager[]): string {
 
 ## Active Managers
 ${managerList}
-
+${conversationHistory}
 ## User Message
 "${message}"
 
@@ -198,8 +199,15 @@ export async function handleIncomingMessage(message: string): Promise<void> {
   // Get current managers
   const managers = getAllManagers();
 
+  // Load conversation history (past 25 messages)
+  const history = loadHistory();
+  const conversationHistory = formatForPrompt(history);
+
+  // Add the new user message to history
+  addMessage('user', message);
+
   // Quick classification using Claude
-  const prompt = getClassifierPrompt(message, managers);
+  const prompt = getClassifierPrompt(message, managers, conversationHistory);
 
   try {
     // Spawn a quick haiku classifier

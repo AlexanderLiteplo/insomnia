@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server';
 import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
+import { authenticateReadRequest } from '../../lib/auth';
 
-const BRIDGE_DIR = process.env.BRIDGE_DIR || path.join(__dirname, '..', '..', '..', '..');
+const BRIDGE_DIR = process.env.BRIDGE_DIR || path.join(process.env.HOME || '', 'claude-automation-system', 'bridge');
 const MANAGER_REGISTRY = path.join(BRIDGE_DIR, '.manager-registry.json');
 const ORCHESTRATOR_DIR = process.env.ORCHESTRATOR_DIR || path.join(BRIDGE_DIR, '..', 'orchestrator');
 const PROJECTS_DIR = path.join(ORCHESTRATOR_DIR, 'projects');
@@ -23,7 +24,9 @@ function getBridgeStatus() {
       try {
         const psResult = execSync(`ps -o etime= -p ${pid}`, { encoding: 'utf8' }).trim();
         uptime = psResult;
-      } catch {}
+      } catch {
+        // Ignore uptime errors
+      }
     }
 
     return { running: true, pid, uptime };
@@ -77,6 +80,49 @@ interface Project {
   currentTask: string | null;
   lastCompletedTask: string | null;
   outputDir: string | null;
+}
+
+interface OrchestratorStatus {
+  workerRunning: boolean;
+  workerPid: number | null;
+  managerRunning: boolean;
+  managerPid: number | null;
+}
+
+function getOrchestratorStatus(): OrchestratorStatus {
+  const WORKER_PID_FILE = path.join(ORCHESTRATOR_DIR, '.state', 'worker.pid');
+  const MANAGER_PID_FILE = path.join(ORCHESTRATOR_DIR, '.state', 'manager.pid');
+
+  let workerRunning = false;
+  let workerPid: number | null = null;
+  let managerRunning = false;
+  let managerPid: number | null = null;
+
+  // Check worker status
+  if (fs.existsSync(WORKER_PID_FILE)) {
+    try {
+      workerPid = parseInt(fs.readFileSync(WORKER_PID_FILE, 'utf8').trim());
+      // Check if process is actually running
+      execSync(`ps -p ${workerPid} > /dev/null 2>&1`);
+      workerRunning = true;
+    } catch {
+      workerRunning = false;
+    }
+  }
+
+  // Check manager status
+  if (fs.existsSync(MANAGER_PID_FILE)) {
+    try {
+      managerPid = parseInt(fs.readFileSync(MANAGER_PID_FILE, 'utf8').trim());
+      // Check if process is actually running
+      execSync(`ps -p ${managerPid} > /dev/null 2>&1`);
+      managerRunning = true;
+    } catch {
+      managerRunning = false;
+    }
+  }
+
+  return { workerRunning, workerPid, managerRunning, managerPid };
 }
 
 function getProjects(): Project[] {
@@ -146,11 +192,18 @@ function getProjects(): Project[] {
   return projects;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  // Authenticate the request (read-only, more permissive)
+  const auth = authenticateReadRequest(request);
+  if (!auth.authorized) {
+    return auth.error;
+  }
+
   const status = {
     bridge: getBridgeStatus(),
     managers: getManagers(),
     projects: getProjects(),
+    orchestrator: getOrchestratorStatus(),
     claudeProcesses: getClaudeProcessCount(),
     lastUpdated: new Date().toISOString(),
   };

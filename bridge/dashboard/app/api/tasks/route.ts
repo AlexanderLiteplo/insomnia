@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import * as fs from 'fs';
 import * as path from 'path';
+import { authenticateRequest, authenticateReadRequest } from '../../lib/auth';
 
-const BRIDGE_DIR = path.join(process.env.HOME || '', 'claude-sms-bridge');
+const BRIDGE_DIR = path.join(process.env.HOME || '', 'claude-automation-system', 'bridge');
 const TASKS_FILE = path.join(BRIDGE_DIR, '.human-tasks.json');
 
 interface HumanTask {
@@ -39,14 +40,24 @@ function saveTasks(store: TasksStore): void {
   fs.writeFileSync(TASKS_FILE, JSON.stringify(store, null, 2));
 }
 
-// GET - List all tasks
-export async function GET() {
+// GET - List all tasks (read-only, more permissive auth)
+export async function GET(request: Request) {
+  const auth = authenticateReadRequest(request);
+  if (!auth.authorized) {
+    return auth.error;
+  }
+
   const store = loadTasks();
   return NextResponse.json(store.tasks);
 }
 
-// POST - Create new task
+// POST - Create new task (requires full auth)
 export async function POST(request: Request) {
+  const auth = authenticateRequest(request);
+  if (!auth.authorized) {
+    return auth.error;
+  }
+
   try {
     const body = await request.json();
 
@@ -76,8 +87,13 @@ export async function POST(request: Request) {
   }
 }
 
-// PATCH - Update task
+// PATCH - Update task (requires full auth)
 export async function PATCH(request: Request) {
+  const auth = authenticateRequest(request);
+  if (!auth.authorized) {
+    return auth.error;
+  }
+
   try {
     const body = await request.json();
     const { id, ...updates } = body;
@@ -110,8 +126,13 @@ export async function PATCH(request: Request) {
   }
 }
 
-// DELETE - Delete task
+// DELETE - Delete task (requires full auth)
 export async function DELETE(request: Request) {
+  const auth = authenticateRequest(request);
+  if (!auth.authorized) {
+    return auth.error;
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');

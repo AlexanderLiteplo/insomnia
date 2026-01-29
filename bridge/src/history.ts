@@ -4,7 +4,7 @@ import { Message, ConversationHistory } from './types';
 import { DATA_DIR } from './config';
 
 const HISTORY_FILE = path.join(DATA_DIR, '.conversation-history.json');
-const MAX_MESSAGES = 20;
+const MAX_MESSAGES = 25;
 
 export function loadHistory(): Message[] {
   if (!fs.existsSync(HISTORY_FILE)) {
