@@ -1,6 +1,6 @@
 # iMessage Bridge
 
-The iMessage Bridge is the communication layer of Amphetamine. It monitors your iMessage database and routes incoming messages to specialized Claude agents.
+The iMessage Bridge is the communication layer of Insomnia. It monitors your iMessage database and routes incoming messages to specialized Claude agents.
 
 ## Architecture
 

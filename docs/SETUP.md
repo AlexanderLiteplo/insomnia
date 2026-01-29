@@ -39,8 +39,8 @@ The bridge needs to read the iMessage database. Grant Full Disk Access to Termin
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/AlexanderLiteplo/amphetamine.git
-cd amphetamine
+git clone https://github.com/AlexanderLiteplo/insomnia.git
+cd insomnia
 ```
 
 ### 2. Set Up the Bridge

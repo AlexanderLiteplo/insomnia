@@ -1,10 +1,10 @@
-# Amphetamine
+# Insomnia
 
 Autonomous AI agents that never sleep. They work while you don't.
 
 ## Overview
 
-Amphetamine is a system of tireless AI agents that operate autonomously via iMessage, building your projects around the clock without human intervention.
+Insomnia is a system of tireless AI agents that operate autonomously via iMessage, building your projects around the clock without human intervention.
 
 1. **iMessage Bridge** - Command your agents via text. They respond, they execute, they deliver.
 2. **Orchestrator** - Worker agents implement. Manager agents review. Skills compound. Progress is relentless.
@@ -54,8 +54,8 @@ Send a message. Walk away. Come back to shipped code.
 
 ```bash
 # Clone the repository
-git clone https://github.com/AlexanderLiteplo/amphetamine.git
-cd amphetamine
+git clone https://github.com/AlexanderLiteplo/insomnia.git
+cd insomnia
 
 # Install bridge dependencies
 cd bridge

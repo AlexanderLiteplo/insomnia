@@ -150,7 +150,7 @@ export default function Dashboard() {
             <DonutAnimation width={28} height={14} />
           </div>
           <div>
-            <h1 className="text-lg font-medium text-[var(--neon-green)]">Amphetamine</h1>
+            <h1 className="text-lg font-medium text-[var(--neon-green)]">Insomnia</h1>
             <p className="text-[10px] text-gray-600">
               {status?.lastUpdated && `${new Date(status.lastUpdated).toLocaleTimeString()}`}
               {error && <span className="text-red-500 ml-2">{error}</span>}

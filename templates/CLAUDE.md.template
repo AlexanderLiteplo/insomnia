@@ -1,0 +1,207 @@
+# Insomnia - Claude Automation System
+
+This file provides context for Claude about the Insomnia system installed on this machine.
+
+## System Overview
+
+Insomnia is an autonomous Claude agent system that:
+- Receives messages via iMessage
+- Routes them to specialized manager agents
+- Can spawn orchestrator workers to build projects autonomously
+- Provides a real-time dashboard for monitoring
+
+## Installation Details
+
+- **User:** {{USER_NAME}}
+- **Installation Directory:** {{INSTALL_DIR}}
+
+## Authenticated CLIs
+
+The following CLIs are authenticated and ready to use:
+- **gcloud CLI** - Google Cloud authenticated
+- **Vercel CLI** - Vercel authenticated
+- **Supabase CLI** - Supabase authenticated
+
+## Insomnia Dashboard (Monitoring UI)
+
+A real-time dashboard for monitoring the entire Claude system.
+
+- **Location:** `{{INSTALL_DIR}}/bridge/dashboard/`
+- **URL:** http://localhost:3333
+- **Start:** `cd {{INSTALL_DIR}}/bridge/dashboard && npm run dev`
+
+Shows:
+- **Human Tasks** - Tasks requiring human action (with Complete/Dismiss buttons)
+- iMessage Bridge status (running/stopped, PID, uptime)
+- All Managers and their status/queues
+- All Orchestrators/Projects and progress
+- Quick action buttons (restart bridge, restart orchestrator)
+
+## Human Tasks System (IMPORTANT)
+
+When you encounter tasks that **require human action** (things you cannot do yourself), create a Human Task. The human will be notified via iMessage and can view/manage tasks on the dashboard.
+
+### When to Create Human Tasks
+- **External actions**: Deploy to App Store, purchase a domain, sign up for a service
+- **Physical tasks**: Plug in a device, check hardware
+- **Decisions needed**: Choose between options that affect business/costs
+- **Access required**: Log into a service you don't have credentials for
+- **Verification**: Confirm something looks right visually, test on a real device
+
+### How to Create Human Tasks
+
+**Via CLI:**
+\`\`\`bash
+cd {{INSTALL_DIR}}/bridge && npm run tasks:add "Title" "Description" --priority high --project myapp --instruction "Step 1" --instruction "Step 2"
+\`\`\`
+
+**Priority Levels:**
+- \`low\` - Nice to have, no rush
+- \`medium\` - Should be done soon (default)
+- \`high\` - Important, needed for progress
+- \`urgent\` - Blocking critical work, notify immediately
+
+### Managing Tasks
+\`\`\`bash
+# List pending tasks
+cd {{INSTALL_DIR}}/bridge && npm run tasks:list
+
+# Mark task complete
+cd {{INSTALL_DIR}}/bridge && npm run tasks complete htask_1234567890
+
+# Dismiss task (not needed anymore)
+cd {{INSTALL_DIR}}/bridge && npm run tasks dismiss htask_1234567890
+\`\`\`
+
+## iMessage Bridge (Multi-Manager System)
+
+The iMessage bridge lets Claude receive and respond to iMessages. It uses a **multi-manager architecture** where a fast Responder (Haiku) routes messages to specialized Manager agents (Opus) that can run in parallel.
+
+### How It Works
+1. **Responder** (Haiku) - Quickly classifies incoming messages and decides:
+   - **CREATE** new manager - for new topics/projects
+   - **QUEUE** to existing manager - for related work
+   - **INTERRUPT** manager - for urgent changes
+2. **Managers** (Opus) - Long-running agents that handle specific topics, can spawn orchestrators
+3. **ACK message** sent immediately telling user which action was taken
+
+### Parallelization Strategy (CRITICAL)
+**NEVER use the general queue.** Always **CREATE** a new manager for each new request. This maximizes parallelization and allows multiple tasks to run concurrently rather than sequentially.
+
+### Key File Locations
+\`\`\`
+{{INSTALL_DIR}}/bridge/
+├── src/                        # TypeScript source
+├── dist/                       # Compiled JS
+├── config.json                 # Runtime configuration
+├── .manager-registry.json      # Persisted manager state
+├── .conversation-history.json  # Last 20 messages
+├── imessage-server.log         # Main activity log
+├── manager-sessions/           # Per-manager session logs
+└── dashboard/                  # Next.js monitoring UI
+\`\`\`
+
+### Common Commands
+\`\`\`bash
+# Restart the bridge
+pkill -f "node dist/server.js"; cd {{INSTALL_DIR}}/bridge && rm -f .bridge.lock && npm start
+
+# Check bridge is running
+ps aux | grep "node dist/server.js" | grep -v grep
+
+# View bridge logs
+tail -f {{INSTALL_DIR}}/bridge/imessage-server.log
+
+# List all managers and their status
+cd {{INSTALL_DIR}}/bridge && npm run status
+
+# List all orchestrators/projects
+cd {{INSTALL_DIR}}/bridge && npm run orchestrators
+
+# View manager sessions
+cd {{INSTALL_DIR}}/bridge && npm run sessions
+
+# Send a message manually
+node {{INSTALL_DIR}}/bridge/dist/send-cli.js "message"
+
+# Delete a manager
+cd {{INSTALL_DIR}}/bridge && npm run managers delete <name>
+\`\`\`
+
+## Orchestrator (Worker-Manager System)
+
+The orchestrator uses a Worker/Manager architecture to autonomously build projects.
+
+### Architecture
+- **Worker** (Opus) - Implements tasks, runs tests
+- **Manager** (Opus) - Reviews work, approves/rejects, generates skills
+- **Task Lifecycle:** \`pending → in_progress → worker_done → completed\`
+
+### Key Scripts
+\`\`\`bash
+# Check all projects status
+{{INSTALL_DIR}}/orchestrator/scripts/projects.sh status
+
+# Check orchestrator status
+cd {{INSTALL_DIR}}/orchestrator && ./scripts/orchestrator.sh status
+
+# Start orchestrator
+cd {{INSTALL_DIR}}/orchestrator && ./scripts/orchestrator.sh start
+
+# Stop orchestrator
+cd {{INSTALL_DIR}}/orchestrator && ./scripts/orchestrator.sh stop
+
+# View logs
+cd {{INSTALL_DIR}}/orchestrator && ./scripts/orchestrator.sh logs
+\`\`\`
+
+### Creating a New Project
+
+Create \`{{INSTALL_DIR}}/orchestrator/prds/tasks.json\`:
+\`\`\`json
+{
+  "project": {
+    "name": "project-name",
+    "description": "What the project does",
+    "outputDir": "~/Documents/project-name"
+  },
+  "tasks": [
+    {
+      "id": "task-001",
+      "name": "Task name",
+      "description": "What to build",
+      "requirements": ["Requirement 1", "Requirement 2"],
+      "testCommand": "npm test",
+      "status": "pending",
+      "testsPassing": false
+    }
+  ]
+}
+\`\`\`
+
+## Quick Start Commands
+
+\`\`\`bash
+# Start everything
+cd {{INSTALL_DIR}} && ./start.sh
+
+# Run setup wizard
+cd {{INSTALL_DIR}} && ./setup.sh
+
+# Check status
+cd {{INSTALL_DIR}}/bridge && npm run status
+\`\`\`
+
+## Debugging Rules (IMPORTANT)
+
+**Do NOT deploy-and-pray.** Before saying "it's fixed" or "try now":
+
+1. **Check logs first** - After deploying, check logs for errors
+2. **Query the actual data** - If something involves database storage, verify data is stored correctly
+3. **Test the endpoint** - Use curl or check logs to confirm the API returns expected data
+4. **Verify end-to-end** - Don't assume frontend will work just because backend deployed
+
+**When user reports "it's not working":**
+- Don't make random changes hoping they fix it
+- Check logs and data FIRST to identify the actual problem
+- Fix the root cause, not symptoms

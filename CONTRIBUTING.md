@@ -1,4 +1,4 @@
-# Contributing to Amphetamine
+# Contributing to Insomnia
 
 Thank you for your interest in contributing! This document provides guidelines for contributing to the project.
 
@@ -17,8 +17,8 @@ Thank you for your interest in contributing! This document provides guidelines f
 
 ```bash
 # Clone your fork
-git clone https://github.com/YOUR_USERNAME/amphetamine.git
-cd amphetamine
+git clone https://github.com/YOUR_USERNAME/insomnia.git
+cd insomnia
 
 # Make scripts executable
 chmod +x scripts/*.sh

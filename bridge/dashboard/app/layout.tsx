@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Amphetamine',
+  title: 'Insomnia',
   description: 'Autonomous AI agents that never sleep',
 };
 
