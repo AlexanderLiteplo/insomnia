@@ -4,30 +4,30 @@
 
 The Claude Automation System consists of two main components that work together:
 
-1. **iMessage Bridge** - Human interface layer
+1. **Telegram Bridge** - Human interface layer
 2. **Orchestrator** - Autonomous work layer
 
-## iMessage Bridge
+## Telegram Bridge
 
 ### Components
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     iMessage Bridge                         │
+│                     Telegram Bridge                         │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│  server.ts                                                  │
-│  ├── Polls iMessage SQLite database                         │
-│  ├── Filters messages from configured sender                │
+│  telegram-server.ts                                         │
+│  ├── Connects to Telegram via long polling                  │
+│  ├── Filters messages from allowed users                    │
 │  ├── Calls responder for each new message                   │
 │  └── Monitors orchestrator health                           │
 │                                                             │
-│  responder.ts                                               │
+│  telegram-responder.ts                                      │
 │  ├── Runs quick Haiku classifier                            │
 │  ├── Decides: CREATE | QUEUE | INTERRUPT | DIRECT           │
 │  └── Sends immediate ACK to user                            │
 │                                                             │
-│  manager-agent.ts                                           │
+│  telegram-manager-agent.ts                                  │
 │  ├── Spawns long-running Opus agents                        │
 │  ├── Manages process lifecycle                              │
 │  └── Handles interruptions                                  │
@@ -42,8 +42,8 @@ The Claude Automation System consists of two main components that work together:
 
 ### Message Flow
 
-1. **Message arrives** in iMessage
-2. **Server** detects new message in SQLite DB
+1. **Message arrives** via Telegram
+2. **Server** receives message via long polling
 3. **Responder** (Haiku) classifies message quickly (~2-5 sec)
 4. **ACK sent** immediately to user
 5. **Manager** (Opus) processes and responds fully
@@ -110,7 +110,7 @@ The Next.js dashboard provides real-time monitoring:
 ## Data Flow
 
 ```
-User ──iMessage──► Bridge ──spawn──► Manager (Opus)
+User ──Telegram──► Bridge ──spawn──► Manager (Opus)
                                          │
                                          ▼
                                Orchestrator (if project work)
@@ -127,7 +127,7 @@ User ──iMessage──► Bridge ──spawn──► Manager (Opus)
 ### Bridge State Files
 - `.manager-registry.json` - Active managers
 - `.conversation-history.json` - Recent messages
-- `.imessage-state.json` - Last processed message ID
+- `.telegram-state.json` - Last processed update ID
 - `.human-tasks.json` - Pending human tasks
 
 ### Orchestrator State Files
@@ -149,14 +149,10 @@ User ──iMessage──► Bridge ──spawn──► Manager (Opus)
 ### Private Data
 
 The following should NEVER be committed:
-- `config.json` (contains phone/email)
+- `config.json` (contains bot token)
 - `*-sessions/` (contain conversations)
 - `.manager-registry.json` (runtime state)
 - `*.log` files
-
-### iMessage Database Access
-
-The system reads from `~/Library/Messages/chat.db` which requires Full Disk Access. It only reads, never writes to this database.
 
 ### Claude CLI
 

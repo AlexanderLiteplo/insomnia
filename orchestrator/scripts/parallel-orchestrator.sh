@@ -9,10 +9,25 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 REGISTRY="$PROJECT_ROOT/projects.json"
+BRIDGE_CONFIG="$HOME/claude-automation-system/bridge/config.json"
 
-# Configuration
-export WORKER_MODEL="${WORKER_MODEL:-opus}"
-export MANAGER_MODEL="${MANAGER_MODEL:-opus}"
+# Read model from bridge config if available
+get_model_from_config() {
+    local key="$1"
+    local default="$2"
+    if [ -f "$BRIDGE_CONFIG" ] && command -v jq &> /dev/null; then
+        local value=$(jq -r ".models.$key // empty" "$BRIDGE_CONFIG" 2>/dev/null)
+        if [ -n "$value" ] && [ "$value" != "null" ]; then
+            echo "$value"
+            return
+        fi
+    fi
+    echo "$default"
+}
+
+# Configuration - read from bridge config first, then env, then defaults
+export WORKER_MODEL="${WORKER_MODEL:-$(get_model_from_config orchestratorWorker opus)}"
+export MANAGER_MODEL="${MANAGER_MODEL:-$(get_model_from_config orchestratorManager opus)}"
 export MAX_ITERATIONS="${MAX_ITERATIONS:-1000}"
 
 # Colors

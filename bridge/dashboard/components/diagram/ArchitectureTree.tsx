@@ -117,26 +117,65 @@ export function ArchitectureTree({
       {/* Left Column: Bridge + Responder */}
       <div className="flex flex-col gap-4 w-48 flex-shrink-0">
         {/* Bridge */}
-        <div className={`bg-[var(--card)] border rounded-lg p-3 ${bridge.running ? 'border-[var(--neon-green)]' : 'border-[var(--card-border)]'}`}>
+        <div className={`bg-[var(--card)] border rounded-lg p-3 ${
+          bridge.running && bridge.healthy
+            ? 'border-[var(--neon-green)]'
+            : bridge.running
+              ? 'border-yellow-800'
+              : 'border-[var(--card-border)]'
+        }`}>
           <div className="flex items-center gap-2 mb-2">
             <Robot state={bridge.running ? 'running' : 'sleeping'} size={36} color="#6688cc" />
             <div>
-              <h3 className="font-medium text-white text-sm">Bridge</h3>
-              <span className={`text-[10px] ${bridge.running ? 'text-green-500' : 'text-gray-500'}`}>
-                {bridge.running ? 'Running' : 'Stopped'}
-              </span>
+              <h3 className="font-medium text-white text-sm">Telegram Bridge</h3>
+              <div className="flex items-center gap-1">
+                <span className={`text-[10px] ${
+                  bridge.running && bridge.healthy
+                    ? 'text-green-500'
+                    : bridge.running
+                      ? 'text-yellow-500'
+                      : 'text-gray-500'
+                }`}>
+                  {bridge.running && bridge.healthy
+                    ? '● Healthy'
+                    : bridge.running
+                      ? '● Running'
+                      : '○ Stopped'}
+                </span>
+              </div>
             </div>
           </div>
           <div className="text-[10px] text-gray-500 space-y-0.5">
+            {bridge.botUsername && (
+              <div className="flex justify-between">
+                <span>Bot</span>
+                <span className="text-blue-400">@{bridge.botUsername}</span>
+              </div>
+            )}
             <div className="flex justify-between">
               <span>PID</span>
-              <span className="text-gray-400">{bridge.pid}</span>
+              <span className="text-gray-400">{bridge.pid ?? '—'}</span>
             </div>
             <div className="flex justify-between">
               <span>Uptime</span>
               <span className="text-gray-400">{bridge.uptime}</span>
             </div>
+            {bridge.lastPollTime && (
+              <div className="flex justify-between">
+                <span>Last Poll</span>
+                <span className="text-gray-400">
+                  {new Date(bridge.lastPollTime).toLocaleTimeString()}
+                </span>
+              </div>
+            )}
           </div>
+          {bridge.errorMessage && (
+            <div className="mt-2 p-1.5 bg-red-900/30 rounded border border-red-900/50">
+              <p className="text-[9px] text-red-400 truncate" title={bridge.errorMessage}>
+                ⚠ {bridge.errorMessage}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Connector */}

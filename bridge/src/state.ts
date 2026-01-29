@@ -1,45 +1,51 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { State } from './types';
 import { DATA_DIR } from './config';
 
-const STATE_FILE = path.join(DATA_DIR, '.imessage-state.json');
 const SENT_MESSAGES_FILE = path.join(DATA_DIR, '.sent-messages.json');
 
-let lastMessageRowId = 0;
-
-export function loadState(): void {
-  if (fs.existsSync(STATE_FILE)) {
-    try {
-      const state: State = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
-      lastMessageRowId = state.lastMessageRowId || 0;
-    } catch {
-      lastMessageRowId = 0;
-    }
-  }
-}
-
-export function saveState(): void {
-  const state: State = { lastMessageRowId };
-  fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
-}
-
-export function getLastRowId(): number {
-  return lastMessageRowId;
-}
-
-export function setLastRowId(rowId: number): void {
-  lastMessageRowId = Math.max(lastMessageRowId, rowId);
-}
-
-// Track full message content for fuzzy matching
-// IMPORTANT: Use file-based storage so send-cli.js (separate process) shares state with server
+// Track recently PROCESSED incoming messages to prevent duplicate agent spawns
+const PROCESSED_MESSAGES_FILE = path.join(DATA_DIR, '.processed-messages.json');
+const PROCESSED_EXPIRY_MS = 30000; // 30 seconds
 const SENT_HASH_EXPIRY_MS = 120000; // 2 minutes
 
-// Track recently PROCESSED incoming messages to prevent duplicate agent spawns
-// This handles iCloud syncing the same message with different ROWIDs
-const recentProcessedMessages: Map<string, number> = new Map();
-const PROCESSED_EXPIRY_MS = 30000; // 30 seconds
+// Load processed messages from file (shared across processes)
+function loadProcessedMessages(): Map<string, number> {
+  try {
+    if (fs.existsSync(PROCESSED_MESSAGES_FILE)) {
+      const data = JSON.parse(fs.readFileSync(PROCESSED_MESSAGES_FILE, 'utf8'));
+      const now = Date.now();
+      // Filter out expired entries while loading
+      const filtered: Record<string, number> = {};
+      for (const [key, timestamp] of Object.entries(data)) {
+        if (now - (timestamp as number) < PROCESSED_EXPIRY_MS) {
+          filtered[key] = timestamp as number;
+        }
+      }
+      return new Map(Object.entries(filtered));
+    }
+  } catch {
+    // Ignore errors, return empty map
+  }
+  return new Map();
+}
+
+// Save processed messages to file (shared across processes)
+function saveProcessedMessages(messages: Map<string, number>): void {
+  try {
+    const obj: Record<string, number> = {};
+    const now = Date.now();
+    for (const [key, timestamp] of messages.entries()) {
+      // Only save non-expired entries
+      if (now - timestamp < PROCESSED_EXPIRY_MS) {
+        obj[key] = timestamp;
+      }
+    }
+    fs.writeFileSync(PROCESSED_MESSAGES_FILE, JSON.stringify(obj, null, 2));
+  } catch {
+    // Ignore write errors
+  }
+}
 
 // Load sent messages from file (shared across processes)
 function loadSentMessages(): Map<string, number> {
@@ -138,23 +144,13 @@ export function wasRecentlySent(text: string): boolean {
   return false;
 }
 
-// Check if message was already processed (prevents iCloud duplicate ROWID issue)
+// Check if message was already processed (prevents duplicate processing)
 export function wasRecentlyProcessed(text: string): boolean {
   const normalized = normalizeText(text);
   const now = Date.now();
 
-  // Clean up expired entries
-  for (const [key, timestamp] of recentProcessedMessages.entries()) {
-    if (now - timestamp > PROCESSED_EXPIRY_MS) {
-      recentProcessedMessages.delete(key);
-    }
-  }
-
-  // Debug: log current state
-  if (recentProcessedMessages.size > 0) {
-    console.log(`[DEBUG] Checking dedup for: "${normalized.substring(0, 40)}..."`);
-    console.log(`[DEBUG] Recent processed (${recentProcessedMessages.size}):`, Array.from(recentProcessedMessages.keys()).map(k => k.substring(0, 40)));
-  }
+  // Load current state from file (shared with other processes)
+  const recentProcessedMessages = loadProcessedMessages();
 
   if (recentProcessedMessages.has(normalized)) {
     return true;
@@ -173,7 +169,17 @@ export function wasRecentlyProcessed(text: string): boolean {
 
 export function markAsProcessed(text: string): void {
   const normalized = normalizeText(text);
-  recentProcessedMessages.set(normalized, Date.now());
-  // Auto-expire
-  setTimeout(() => recentProcessedMessages.delete(normalized), PROCESSED_EXPIRY_MS);
+  const now = Date.now();
+
+  // Load current state from file (shared with other processes)
+  const recentProcessedMessages = loadProcessedMessages();
+
+  recentProcessedMessages.set(normalized, now);
+  // Also store first 30 chars as partial key for fragment matching
+  if (normalized.length > 30) {
+    recentProcessedMessages.set(normalized.substring(0, 30), now);
+  }
+
+  // Save back to file
+  saveProcessedMessages(recentProcessedMessages);
 }

@@ -5,7 +5,7 @@ This file provides context for Claude about the Insomnia system installed on thi
 ## System Overview
 
 Insomnia is an autonomous Claude agent system that:
-- Receives messages via iMessage
+- Receives messages via Telegram
 - Routes them to specialized manager agents
 - Can spawn orchestrator workers to build projects autonomously
 - Provides a real-time dashboard for monitoring
@@ -32,14 +32,14 @@ A real-time dashboard for monitoring the entire Claude system.
 
 Shows:
 - **Human Tasks** - Tasks requiring human action (with Complete/Dismiss buttons)
-- iMessage Bridge status (running/stopped, PID, uptime)
+- Telegram Bridge status (running/stopped, PID, uptime)
 - All Managers and their status/queues
 - All Orchestrators/Projects and progress
 - Quick action buttons (restart bridge, restart orchestrator)
 
 ## Human Tasks System (IMPORTANT)
 
-When you encounter tasks that **require human action** (things you cannot do yourself), create a Human Task. The human will be notified via iMessage and can view/manage tasks on the dashboard.
+When you encounter tasks that **require human action** (things you cannot do yourself), create a Human Task. The human will be notified via Telegram and can view/manage tasks on the dashboard.
 
 ### When to Create Human Tasks
 - **External actions**: Deploy to App Store, purchase a domain, sign up for a service
@@ -73,9 +73,9 @@ cd {{INSTALL_DIR}}/bridge && npm run tasks complete htask_1234567890
 cd {{INSTALL_DIR}}/bridge && npm run tasks dismiss htask_1234567890
 \`\`\`
 
-## iMessage Bridge (Multi-Manager System)
+## Telegram Bridge (Multi-Manager System)
 
-The iMessage bridge lets Claude receive and respond to iMessages. It uses a **multi-manager architecture** where a fast Responder (Haiku) routes messages to specialized Manager agents (Opus) that can run in parallel.
+The Telegram bridge lets Claude receive and respond to Telegram messages. It uses a **multi-manager architecture** where a fast Responder (Haiku) routes messages to specialized Manager agents (Opus) that can run in parallel.
 
 ### How It Works
 1. **Responder** (Haiku) - Quickly classifies incoming messages and decides:
@@ -96,7 +96,7 @@ The iMessage bridge lets Claude receive and respond to iMessages. It uses a **mu
 ├── config.json                 # Runtime configuration
 ├── .manager-registry.json      # Persisted manager state
 ├── .conversation-history.json  # Last 20 messages
-├── imessage-server.log         # Main activity log
+├── bridge.log                  # Main activity log
 ├── manager-sessions/           # Per-manager session logs
 └── dashboard/                  # Next.js monitoring UI
 \`\`\`
@@ -104,13 +104,13 @@ The iMessage bridge lets Claude receive and respond to iMessages. It uses a **mu
 ### Common Commands
 \`\`\`bash
 # Restart the bridge
-pkill -f "node dist/server.js"; cd {{INSTALL_DIR}}/bridge && rm -f .bridge.lock && npm start
+pkill -f "node dist/telegram-server.js"; cd {{INSTALL_DIR}}/bridge && rm -f .bridge.lock && npm start
 
 # Check bridge is running
-ps aux | grep "node dist/server.js" | grep -v grep
+ps aux | grep "node dist/telegram-server.js" | grep -v grep
 
 # View bridge logs
-tail -f {{INSTALL_DIR}}/bridge/imessage-server.log
+tail -f {{INSTALL_DIR}}/bridge/bridge.log
 
 # List all managers and their status
 cd {{INSTALL_DIR}}/bridge && npm run status
@@ -121,8 +121,8 @@ cd {{INSTALL_DIR}}/bridge && npm run orchestrators
 # View manager sessions
 cd {{INSTALL_DIR}}/bridge && npm run sessions
 
-# Send a message manually
-node {{INSTALL_DIR}}/bridge/dist/send-cli.js "message"
+# Send a message manually (requires chat_id)
+node {{INSTALL_DIR}}/bridge/dist/telegram-send-cli.js <chat_id> "message"
 
 # Delete a manager
 cd {{INSTALL_DIR}}/bridge && npm run managers delete <name>

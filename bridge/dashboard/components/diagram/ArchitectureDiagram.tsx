@@ -48,7 +48,7 @@ export function ArchitectureDiagram({
     <div className="w-full h-full flex flex-col">
       {/* Desktop: Horizontal flow layout - Full height */}
       <div className="hidden md:flex items-stretch justify-between gap-4 flex-1 min-h-0">
-        {/* iMessage Bridge Node */}
+        {/* Telegram Bridge Node */}
         <div className="flex-1 min-w-0 flex flex-col">
           <BridgeNode bridge={bridge} />
         </div>
@@ -99,7 +99,7 @@ export function ArchitectureDiagram({
 
       {/* Mobile: Vertical stacked layout */}
       <div className="flex md:hidden flex-col items-center gap-2">
-        {/* iMessage Bridge Node */}
+        {/* Telegram Bridge Node */}
         <div className="w-full">
           <BridgeNode bridge={bridge} />
         </div>

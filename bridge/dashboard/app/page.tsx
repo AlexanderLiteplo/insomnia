@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import type { HumanTask, SystemStatus } from '../lib/types';
 import { ArchitectureTree } from '../components/diagram/ArchitectureTree';
 import { DonutAnimation } from '../components/ascii/DonutAnimation';
+import { ModelSelector } from '../components/ModelSelector';
 
 // CSRF token management
 let csrfToken: string | null = null;
@@ -68,12 +69,27 @@ function formatTimeAgo(isoString: string): string {
   return `${diffDays}d ago`;
 }
 
+interface HealthStatus {
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  summary: string;
+  timestamp: string;
+  checks: {
+    telegramBridge: { status: string; message: string };
+    orchestratorWorker: { status: string; message: string };
+    orchestratorManager: { status: string; message: string };
+    dashboard: { status: string; message: string };
+  };
+}
+
 export default function Dashboard() {
   const [status, setStatus] = useState<SystemStatus | null>(null);
   const [tasks, setTasks] = useState<HumanTask[]>([]);
+  const [health, setHealth] = useState<HealthStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showActions, setShowActions] = useState(false);
+  const [showHealth, setShowHealth] = useState(false);
+  const [showModels, setShowModels] = useState(false);
 
   const fetchStatus = async () => {
     try {
@@ -100,6 +116,16 @@ export default function Dashboard() {
     }
   };
 
+  const fetchHealth = async () => {
+    try {
+      const res = await fetch('/api/health');
+      const data = await res.json();
+      setHealth(data);
+    } catch (err) {
+      console.error('Failed to fetch health:', err);
+    }
+  };
+
   const updateTask = async (id: string, updates: Partial<HumanTask>) => {
     try {
       const res = await secureFetch('/api/tasks', {
@@ -117,11 +143,14 @@ export default function Dashboard() {
   useEffect(() => {
     fetchStatus();
     fetchTasks();
+    fetchHealth();
     const statusInterval = setInterval(fetchStatus, 5000);
     const tasksInterval = setInterval(fetchTasks, 10000);
+    const healthInterval = setInterval(fetchHealth, 15000);
     return () => {
       clearInterval(statusInterval);
       clearInterval(tasksInterval);
+      clearInterval(healthInterval);
     };
   }, []);
 
@@ -158,8 +187,40 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Right: Stats + Actions */}
+        {/* Right: Health + Stats + Actions */}
         <div className="flex items-center gap-2">
+          {/* Health Status */}
+          <button
+            onClick={() => setShowHealth(!showHealth)}
+            className={`bg-[var(--card)] border rounded px-3 py-1.5 text-center cursor-pointer hover:border-gray-600 transition-colors ${
+              health?.status === 'healthy'
+                ? 'border-green-800'
+                : health?.status === 'degraded'
+                  ? 'border-yellow-800'
+                  : 'border-red-800'
+            }`}
+          >
+            <div className={`text-lg font-medium ${
+              health?.status === 'healthy'
+                ? 'text-green-500'
+                : health?.status === 'degraded'
+                  ? 'text-yellow-500'
+                  : 'text-red-500'
+            }`}>
+              {health?.status === 'healthy' ? '●' : health?.status === 'degraded' ? '◐' : '○'}
+            </div>
+            <div className="text-[9px] text-gray-500">Health</div>
+          </button>
+
+          {/* Model Config Button */}
+          <button
+            onClick={() => setShowModels(!showModels)}
+            className="bg-[var(--card)] border border-[var(--card-border)] rounded px-3 py-1.5 text-center cursor-pointer hover:border-gray-600 transition-colors"
+          >
+            <div className="text-lg">🤖</div>
+            <div className="text-[9px] text-gray-500">Models</div>
+          </button>
+
           <div className="bg-[var(--card)] border border-[var(--card-border)] rounded px-3 py-1.5 text-center">
             <div className="text-lg font-medium text-[var(--neon-green)]">
               {status?.claudeProcesses ?? 0}
@@ -174,6 +235,68 @@ export default function Dashboard() {
             <span className="text-gray-500 text-sm">•••</span>
           </button>
 
+          {/* Health Dropdown */}
+          <AnimatePresence>
+            {showHealth && health && (
+              <motion.div
+                className="absolute top-14 right-28 bg-[var(--card)] border border-[var(--card-border)] rounded z-50 overflow-hidden w-64"
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -5 }}
+              >
+                <div className="p-3">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-medium text-white text-sm">System Health</h3>
+                    <span className={`text-[10px] px-2 py-0.5 rounded ${
+                      health.status === 'healthy'
+                        ? 'bg-green-900/50 text-green-500'
+                        : health.status === 'degraded'
+                          ? 'bg-yellow-900/50 text-yellow-500'
+                          : 'bg-red-900/50 text-red-500'
+                    }`}>
+                      {health.status.toUpperCase()}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-gray-400 mb-3">{health.summary}</p>
+                  <div className="space-y-2">
+                    {Object.entries(health.checks).map(([name, check]) => (
+                      <div key={name} className="flex items-center justify-between text-[10px]">
+                        <span className="text-gray-400">
+                          {name === 'telegramBridge' ? 'Telegram Bridge' :
+                           name === 'orchestratorWorker' ? 'Orchestrator Worker' :
+                           name === 'orchestratorManager' ? 'Orchestrator Manager' :
+                           'Dashboard'}
+                        </span>
+                        <span className={`flex items-center gap-1 ${
+                          check.status === 'pass'
+                            ? 'text-green-500'
+                            : check.status === 'warn'
+                              ? 'text-yellow-500'
+                              : 'text-red-500'
+                        }`}>
+                          {check.status === 'pass' ? '●' : check.status === 'warn' ? '◐' : '○'}
+                          <span>{check.message}</span>
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-3 pt-2 border-t border-[var(--card-border)]">
+                    <span className="text-[9px] text-gray-600">
+                      Last check: {new Date(health.timestamp).toLocaleTimeString()}
+                    </span>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Model Selector */}
+          <ModelSelector
+            isOpen={showModels}
+            onClose={() => setShowModels(false)}
+            getCsrfToken={getCsrfToken}
+          />
+
           {/* Actions Dropdown */}
           <AnimatePresence>
             {showActions && (
@@ -186,7 +309,10 @@ export default function Dashboard() {
                 <div className="p-1">
                   <button
                     onClick={() => {
-                      secureFetch('/api/bridge/restart', { method: 'POST' }).then(fetchStatus);
+                      secureFetch('/api/bridge/restart', { method: 'POST' }).then(() => {
+                        fetchStatus();
+                        fetchHealth();
+                      });
                       setShowActions(false);
                     }}
                     className="w-full px-3 py-1.5 text-left text-xs text-green-500 hover:bg-green-900/20 rounded"
@@ -195,7 +321,10 @@ export default function Dashboard() {
                   </button>
                   <button
                     onClick={() => {
-                      secureFetch('/api/orchestrators/restart', { method: 'POST' }).then(fetchStatus);
+                      secureFetch('/api/orchestrators/restart', { method: 'POST' }).then(() => {
+                        fetchStatus();
+                        fetchHealth();
+                      });
                       setShowActions(false);
                     }}
                     className="w-full px-3 py-1.5 text-left text-xs text-pink-500 hover:bg-pink-900/20 rounded"
@@ -206,6 +335,7 @@ export default function Dashboard() {
                     onClick={() => {
                       fetchStatus();
                       fetchTasks();
+                      fetchHealth();
                       setShowActions(false);
                     }}
                     className="w-full px-3 py-1.5 text-left text-xs text-gray-400 hover:bg-gray-800 rounded"
@@ -313,11 +443,15 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Click outside to close dropdown */}
-      {showActions && (
+      {/* Click outside to close dropdowns */}
+      {(showActions || showHealth || showModels) && (
         <div
           className="fixed inset-0 z-40"
-          onClick={() => setShowActions(false)}
+          onClick={() => {
+            setShowActions(false);
+            setShowHealth(false);
+            setShowModels(false);
+          }}
         />
       )}
     </div>

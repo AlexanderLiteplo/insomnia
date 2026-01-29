@@ -1,8 +1,26 @@
+export type ClaudeModel = 'sonnet' | 'haiku' | 'opus';
+
+export interface ModelConfig {
+  responder: ClaudeModel;        // Model for the message classifier/router (default: haiku)
+  defaultManager: ClaudeModel;   // Default model for new managers (default: opus)
+  orchestratorWorker: ClaudeModel;  // Model for orchestrator workers (default: opus)
+  orchestratorManager: ClaudeModel; // Model for orchestrator managers (default: opus)
+}
+
 export interface Config {
-  yourPhoneNumber: string;
-  yourEmail: string;
+  // Telegram configuration
+  telegramBotToken?: string;
+  telegramAllowedUserIds?: number[];  // Optional: restrict to specific user IDs
+
+  // Transport type (telegram is the only supported option now)
+  transport?: 'telegram';
+
+  // Common settings
   claudeWorkDir: string;
   pollInterval: number;
+
+  // Model configuration
+  models?: ModelConfig;
 }
 
 export interface Message {
@@ -15,14 +33,8 @@ export interface ConversationHistory {
   messages: Message[];
 }
 
-export interface State {
-  lastMessageRowId: number;
-}
-
-export interface DatabaseRow {
-  ROWID: number;
-  text: string | null;
-  attributedBody: Buffer | null;
-  date: number;
-  sender: string;
+// Telegram-specific types
+export interface TelegramState {
+  lastUpdateId: number;
+  botUsername?: string;
 }

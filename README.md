@@ -4,9 +4,9 @@ Autonomous AI agents that never sleep. They work while you don't.
 
 ## Overview
 
-Insomnia is a system of tireless AI agents that operate autonomously via iMessage, building your projects around the clock without human intervention.
+Insomnia is a system of tireless AI agents that operate autonomously via Telegram, building your projects around the clock without human intervention.
 
-1. **iMessage Bridge** - Command your agents via text. They respond, they execute, they deliver.
+1. **Telegram Bridge** - Command your agents via Telegram. They respond, they execute, they deliver.
 2. **Orchestrator** - Worker agents implement. Manager agents review. Skills compound. Progress is relentless.
 
 Send a message. Walk away. Come back to shipped code.
@@ -15,7 +15,7 @@ Send a message. Walk away. Come back to shipped code.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     iMessage Bridge                         │
+│                      Telegram Bridge                        │
 │  ┌──────────┐    ┌───────────┐    ┌──────────────────────┐ │
 │  │ Responder│───►│  Manager  │───►│ Claude CLI (Opus)    │ │
 │  │ (Haiku)  │    │  Registry │    │ Long-running agents  │ │
@@ -23,7 +23,7 @@ Send a message. Walk away. Come back to shipped code.
 │       │                                      │              │
 │       ▼                                      ▼              │
 │  Quick ACK                           Full responses via    │
-│  via iMessage                             iMessage          │
+│  via Telegram                            Telegram           │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -45,10 +45,9 @@ Send a message. Walk away. Come back to shipped code.
 
 ### Prerequisites
 
-- macOS (for iMessage integration)
 - Node.js 18+
 - [Claude CLI](https://github.com/anthropics/claude-code) installed and authenticated
-- Full Disk Access for Terminal (to read iMessage database)
+- A Telegram account and bot token (from @BotFather)
 
 ### Installation
 
@@ -57,14 +56,14 @@ Send a message. Walk away. Come back to shipped code.
 git clone https://github.com/AlexanderLiteplo/insomnia.git
 cd insomnia
 
-# Install bridge dependencies
+# Run the setup wizard
+./setup.sh
+
+# Or manually:
 cd bridge
 npm install
 npm run build
-
-# Configure the bridge
-cp config.example.json config.json
-# Edit config.json with your phone number
+npm run setup  # Interactive Telegram setup
 ```
 
 ### Running the Bridge
@@ -100,7 +99,7 @@ cp prds/tasks.example.json prds/tasks.json
 
 ### Bridge (`/bridge`)
 
-The iMessage bridge monitors your iMessage database and routes messages to specialized Claude agents.
+The Telegram bridge receives messages from your Telegram bot and routes them to specialized Claude agents.
 
 - **Responder** (Haiku) - Fast classifier that routes messages
 - **Managers** (Opus) - Long-running agents that handle specific topics
@@ -124,8 +123,8 @@ See [orchestrator documentation](orchestrator/README.md) for details.
 
 ```json
 {
-  "yourPhoneNumber": "+1234567890",
-  "yourEmail": "",
+  "telegramBotToken": "your-bot-token-from-botfather",
+  "telegramAllowedUserIds": [123456789],
   "claudeWorkDir": "~/Documents/claude-work",
   "pollInterval": 2000
 }

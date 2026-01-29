@@ -1,10 +1,13 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { DATA_DIR, loadConfig } from './config';
-import { sendMessage } from './imessage';
+import { sendTelegramMessage } from './telegram-send';
 import { log } from './logger';
 
 const TASKS_FILE = path.join(DATA_DIR, '.human-tasks.json');
+
+// Store the last known chat ID for notifications
+const CHAT_ID_FILE = path.join(DATA_DIR, '.last-chat-id.json');
 
 export interface HumanTask {
   id: string;
@@ -40,6 +43,22 @@ function saveTasks(store: HumanTasksStore): void {
   fs.writeFileSync(TASKS_FILE, JSON.stringify(store, null, 2));
 }
 
+function getLastChatId(): number | null {
+  try {
+    if (fs.existsSync(CHAT_ID_FILE)) {
+      const data = JSON.parse(fs.readFileSync(CHAT_ID_FILE, 'utf8'));
+      return data.chatId || null;
+    }
+  } catch {
+    // Ignore errors
+  }
+  return null;
+}
+
+export function setLastChatId(chatId: number): void {
+  fs.writeFileSync(CHAT_ID_FILE, JSON.stringify({ chatId, updatedAt: new Date().toISOString() }, null, 2));
+}
+
 export function getAllTasks(): HumanTask[] {
   return loadTasks().tasks;
 }
@@ -61,6 +80,7 @@ export async function createTask(
     priority?: 'low' | 'medium' | 'high' | 'urgent';
     createdBy?: string;
     notify?: boolean;
+    chatId?: number;
   } = {}
 ): Promise<HumanTask> {
   const store = loadTasks();
@@ -85,7 +105,12 @@ export async function createTask(
 
   // Send notification if requested (default true)
   if (options.notify !== false) {
-    await notifyTask(task);
+    const chatId = options.chatId || getLastChatId();
+    if (chatId) {
+      await notifyTask(task, chatId);
+    } else {
+      log('[HumanTasks] No chat ID available for notification');
+    }
   }
 
   return task;
@@ -124,15 +149,7 @@ export function deleteTask(id: string): boolean {
   return true;
 }
 
-async function notifyTask(task: HumanTask): Promise<void> {
-  const config = loadConfig();
-  const recipient = config.yourPhoneNumber || config.yourEmail;
-
-  if (!recipient) {
-    log('[HumanTasks] No recipient configured for notifications');
-    return;
-  }
-
+async function notifyTask(task: HumanTask, chatId: number): Promise<void> {
   const priorityEmoji = {
     low: '📋',
     medium: '📌',
@@ -158,7 +175,7 @@ async function notifyTask(task: HumanTask): Promise<void> {
   message += `\n\nView all tasks: http://localhost:3333`;
 
   try {
-    await sendMessage(recipient, message);
+    await sendTelegramMessage(chatId, message);
     updateTask(task.id, { notified: true });
     log(`[HumanTasks] Notified user about task: ${task.title}`);
   } catch (err) {
@@ -200,7 +217,7 @@ export async function addTaskFromCLI(args: string[]): Promise<void> {
 
   for (let i = 2; i < args.length; i++) {
     if (args[i] === '--priority' && args[i + 1]) {
-      priority = args[++i] as any;
+      priority = args[++i] as 'low' | 'medium' | 'high' | 'urgent';
     } else if (args[i] === '--project' && args[i + 1]) {
       project = args[++i];
     } else if (args[i] === '--instruction' && args[i + 1]) {

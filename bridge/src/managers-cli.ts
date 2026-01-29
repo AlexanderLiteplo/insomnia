@@ -8,14 +8,15 @@ import {
   deleteManager,
   loadRegistry,
 } from './manager-registry';
-import { isManagerRunning, getManagerSessions } from './manager-agent';
+import { isManagerRunning, getManagerSessions } from './telegram-manager-agent';
+import { PATHS, getOrchestratorDir } from './paths';
 
-const MANAGER_SESSIONS_DIR = path.join(__dirname, '..', 'manager-sessions');
-const ORCHESTRATOR_DIR = path.join(process.env.HOME || '', 'Documents', 'claude-manager');
+const MANAGER_SESSIONS_DIR = PATHS.bridge.managerSessions;
+const ORCHESTRATOR_DIR = getOrchestratorDir();
 
 function printUsage() {
   console.log(`
-iMessage Bridge Manager CLI
+Telegram Bridge Manager CLI
 
 Usage: node dist/managers-cli.js <command> [options]
 

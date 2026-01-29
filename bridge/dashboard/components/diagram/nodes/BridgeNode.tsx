@@ -14,7 +14,7 @@ export function BridgeNode({ bridge, onClick }: BridgeNodeProps) {
 
   return (
     <DiagramNode
-      title="iMessage Bridge"
+      title="Telegram Bridge"
       status={status}
       robotState={robotState}
       robotColor="#00aaff"

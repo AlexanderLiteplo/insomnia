@@ -9,30 +9,117 @@ const MANAGER_REGISTRY = path.join(BRIDGE_DIR, '.manager-registry.json');
 const ORCHESTRATOR_DIR = process.env.ORCHESTRATOR_DIR || path.join(BRIDGE_DIR, '..', 'orchestrator');
 const PROJECTS_DIR = path.join(ORCHESTRATOR_DIR, 'projects');
 
-function getBridgeStatus() {
+interface TelegramBridgeStatus {
+  running: boolean;
+  pid: number | null;
+  uptime: string;
+  healthy: boolean;
+  lastPollTime: string | null;
+  botUsername: string | null;
+  errorMessage: string | null;
+}
+
+function getBridgeStatus(): TelegramBridgeStatus {
+  const status: TelegramBridgeStatus = {
+    running: false,
+    pid: null,
+    uptime: '—',
+    healthy: false,
+    lastPollTime: null,
+    botUsername: null,
+    errorMessage: null,
+  };
+
   try {
-    const result = execSync('ps aux | grep "node dist/server.js" | grep -v grep', {
+    // Check for telegram-server.js process
+    const result = execSync('ps aux | grep "node dist/telegram-server.js" | grep -v grep', {
       encoding: 'utf8',
       timeout: 5000,
     });
 
-    const match = result.match(/(\d+)\s+[\d.]+\s+[\d.]+/);
-    const pid = match ? parseInt(match[1]) : null;
+    const match = result.match(/\s+(\d+)\s+/);
+    status.pid = match ? parseInt(match[1]) : null;
+    status.running = true;
 
-    let uptime = '—';
-    if (pid) {
+    if (status.pid) {
       try {
-        const psResult = execSync(`ps -o etime= -p ${pid}`, { encoding: 'utf8' }).trim();
-        uptime = psResult;
+        const psResult = execSync(`ps -o etime= -p ${status.pid}`, { encoding: 'utf8' }).trim();
+        status.uptime = psResult;
       } catch {
         // Ignore uptime errors
       }
     }
 
-    return { running: true, pid, uptime };
+    // Check bridge health from log file
+    const logFile = path.join(BRIDGE_DIR, 'bridge.log');
+    if (fs.existsSync(logFile)) {
+      try {
+        // Read last few lines of log
+        const logContent = execSync(`tail -20 "${logFile}"`, { encoding: 'utf8', timeout: 2000 });
+
+        // Check for recent activity (within last 2 minutes)
+        const lines = logContent.split('\n').filter(l => l.trim());
+        if (lines.length > 0) {
+          const lastLine = lines[lines.length - 1];
+          const timestampMatch = lastLine.match(/^\[(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})/);
+          if (timestampMatch) {
+            const lastLogTime = new Date(timestampMatch[1]);
+            const now = new Date();
+            const diffMs = now.getTime() - lastLogTime.getTime();
+
+            // Consider healthy if log activity within last 2 minutes
+            if (diffMs < 120000) {
+              status.healthy = true;
+              status.lastPollTime = lastLogTime.toISOString();
+            }
+          }
+
+          // Extract bot username if available
+          const usernameMatch = logContent.match(/Connected as @(\w+)/);
+          if (usernameMatch) {
+            status.botUsername = usernameMatch[1];
+          }
+
+          // Check for recent errors
+          const errorLines = lines.filter(l => l.includes('error') || l.includes('Error') || l.includes('❌'));
+          if (errorLines.length > 0) {
+            const lastError = errorLines[errorLines.length - 1];
+            // Only report error if it's recent
+            const errorTimestamp = lastError.match(/^\[(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})/);
+            if (errorTimestamp) {
+              const errorTime = new Date(errorTimestamp[1]);
+              const diffMs = new Date().getTime() - errorTime.getTime();
+              if (diffMs < 60000) { // Error within last minute
+                status.errorMessage = lastError.replace(/^\[[^\]]+\]\s*/, '').substring(0, 100);
+              }
+            }
+          }
+        }
+      } catch {
+        // Ignore log reading errors
+      }
+    }
+
+    // Also check config for bot info
+    const configFile = path.join(BRIDGE_DIR, 'config.json');
+    if (fs.existsSync(configFile) && !status.botUsername) {
+      try {
+        const config = JSON.parse(fs.readFileSync(configFile, 'utf8'));
+        if (config.telegramBotToken) {
+          status.healthy = status.running; // If configured and running, consider healthy
+        }
+      } catch {
+        // Ignore config errors
+      }
+    }
+
   } catch {
-    return { running: false, pid: null, uptime: '—' };
+    // Process not running
+    status.running = false;
+    status.healthy = false;
   }
+
+  return status;
 }
 
 function getManagers() {

@@ -30,6 +30,10 @@ export interface BridgeStatus {
   running: boolean;
   pid: number | null;
   uptime: string;
+  healthy?: boolean;
+  lastPollTime?: string | null;
+  botUsername?: string | null;
+  errorMessage?: string | null;
 }
 
 // Human task interface

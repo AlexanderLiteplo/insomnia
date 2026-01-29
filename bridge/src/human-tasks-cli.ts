@@ -27,7 +27,7 @@ Options for 'add':
   --priority <level>      Set priority: low, medium, high, urgent (default: medium)
   --project <name>        Associate with a project
   --instruction <text>    Add an instruction step (can be used multiple times)
-  --no-notify             Don't send iMessage notification
+  --no-notify             Don't send Telegram notification
 
 Examples:
   node dist/human-tasks-cli.js add "Deploy to production" "Push the latest changes to prod" --priority high --project myapp

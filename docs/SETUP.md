@@ -4,13 +4,9 @@ Complete instructions for setting up the Claude Automation System.
 
 ## Prerequisites
 
-### macOS Requirements
-
-This system requires macOS because it integrates with iMessage.
-
 ### System Requirements
 
-- macOS 12+ (Monterey or later)
+- macOS, Linux, or Windows with Node.js
 - Node.js 18 or later
 - npm 9 or later
 
@@ -26,13 +22,11 @@ npm install -g @anthropic-ai/claude-code
 claude login
 ```
 
-### Full Disk Access
+### Telegram Bot
 
-The bridge needs to read the iMessage database. Grant Full Disk Access to Terminal:
-
-1. Open System Preferences > Privacy & Security > Full Disk Access
-2. Add Terminal (or your terminal app)
-3. Restart Terminal
+1. Open Telegram and search for @BotFather
+2. Send `/newbot` and follow the prompts
+3. Save your bot token
 
 ## Installation
 
@@ -54,25 +48,32 @@ npm install
 # Build TypeScript
 npm run build
 
-# Create configuration
-cp config.example.json config.json
+# Run the setup wizard (recommended)
+npm run setup
 ```
 
-Edit `config.json`:
+The setup wizard will guide you through:
+- Entering your Telegram bot token
+- Optionally restricting the bot to your user ID
+- Verifying the bot works
+
+#### Manual Configuration
+
+If you prefer manual setup, create `config.json`:
 
 ```json
 {
-  "yourPhoneNumber": "+1234567890",
-  "yourEmail": "your@email.com",
+  "telegramBotToken": "your-bot-token-from-botfather",
+  "telegramAllowedUserIds": [123456789],
   "claudeWorkDir": "~/Documents/claude-work",
   "pollInterval": 2000
 }
 ```
 
-- `yourPhoneNumber`: Your phone number (for filtering iMessages)
-- `yourEmail`: Your iCloud email (alternative filter)
+- `telegramBotToken`: Your bot token from @BotFather
+- `telegramAllowedUserIds`: (Optional) Restrict to specific Telegram user IDs
 - `claudeWorkDir`: Directory for Claude to work in
-- `pollInterval`: How often to check for new messages (ms)
+- `pollInterval`: How often to poll for updates (ms)
 
 ### 3. Set Up the Dashboard
 
@@ -102,9 +103,9 @@ npm start
 ```
 
 The bridge will:
-- Poll the iMessage database every 2 seconds
+- Connect to Telegram via long polling
 - Route messages to appropriate managers
-- Send responses back via iMessage
+- Send responses back via Telegram
 
 ### Start the Dashboard
 
@@ -140,7 +141,7 @@ Then start:
 ### Check Bridge Status
 
 ```bash
-ps aux | grep "node dist/server.js"
+ps aux | grep "node dist/telegram-server.js"
 ```
 
 ### Check Orchestrator Status
@@ -154,7 +155,7 @@ cd orchestrator
 
 ```bash
 # Bridge logs
-tail -f bridge/imessage-server.log
+tail -f bridge/bridge.log
 
 # Orchestrator logs
 cd orchestrator
@@ -165,9 +166,9 @@ cd orchestrator
 
 ### Bridge not receiving messages
 
-1. Verify Full Disk Access is granted
-2. Check the phone number in config.json matches exactly
-3. Ensure iMessage is signed in on your Mac
+1. Verify your bot token is correct
+2. Check that the bot is started (send /start to your bot)
+3. If using user restrictions, verify your user ID is in the list
 
 ### Claude CLI not found
 
@@ -185,4 +186,4 @@ chmod +x orchestrator/scripts/*.sh
 
 - Read the [Architecture documentation](ARCHITECTURE.md)
 - Create your first project in `orchestrator/prds/tasks.json`
-- Send a message to yourself via iMessage to test
+- Send a message to your Telegram bot to test

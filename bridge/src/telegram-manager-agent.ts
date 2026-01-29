@@ -1,10 +1,13 @@
+/**
+ * Telegram Manager Agent
+ * Spawns and manages Opus agents for Telegram messages
+ */
+
 import { spawn, ChildProcess } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { log } from './logger';
-import { DATA_DIR } from './config';
-import { sendMessage } from './imessage';
-import { loadConfig } from './config';
+import { DATA_DIR, getModel } from './config';
 import {
   Manager,
   updateManager,
@@ -14,19 +17,24 @@ import {
   getManagerProcess,
   queueMessageToManager,
 } from './manager-registry';
+import { PATHS, getOrchestratorDir, getSendCliPath } from './paths';
 
-const MANAGER_SESSIONS_DIR = path.join(DATA_DIR, 'manager-sessions');
-const ORCHESTRATOR_DIR = process.env.ORCHESTRATOR_DIR || path.join(__dirname, '..', '..', 'orchestrator');
+const MANAGER_SESSIONS_DIR = PATHS.bridge.managerSessions;
+const ORCHESTRATOR_DIR = getOrchestratorDir();
 
 // Ensure sessions directory exists
 fs.mkdirSync(MANAGER_SESSIONS_DIR, { recursive: true });
 
-export interface ManagerContext {
+export interface TelegramManagerContext {
   manager: Manager;
   initialMessage: string;
+  chatId: number;
 }
 
-function getManagerPrompt(manager: Manager, message: string): string {
+// Track chat IDs for managers (for sending responses)
+const managerChatIds = new Map<string, number>();
+
+function getManagerPrompt(manager: Manager, message: string, chatId: number): string {
   return `You are "${manager.name}" - a specialized manager agent for Alexander.
 
 ## Your Role
@@ -40,10 +48,10 @@ Alexander sent: "${message}"
 
 ## Your Capabilities
 
-### 1. Send iMessage Responses
-Always communicate progress and results via iMessage:
+### 1. Send Telegram Responses
+Always communicate progress and results via Telegram:
 \`\`\`bash
-node ${path.join(DATA_DIR, 'dist', 'send-cli.js')} "Your message to Alexander"
+node ${path.join(DATA_DIR, 'dist', 'telegram-send-cli.js')} ${chatId} "Your message to Alexander"
 \`\`\`
 
 ### 2. Manage Orchestrator Sessions
@@ -74,8 +82,8 @@ claude --model opus --dangerously-skip-permissions --add-dir <directory> -p "tas
 Create tasks.json files and register with the orchestrator system.
 
 ## Important Rules
-1. ALWAYS send an iMessage when you complete a task or need input
-2. ALWAYS send an iMessage if you encounter an error
+1. ALWAYS send a Telegram message when you complete a task or need input
+2. ALWAYS send a Telegram message if you encounter an error
 3. Keep Alexander informed of progress on long-running tasks
 4. When done with this task, send a completion message
 
@@ -86,10 +94,13 @@ This is used by the system to track your state.
 Now handle the request above.`;
 }
 
-export function spawnManager(context: ManagerContext): ChildProcess {
-  const { manager, initialMessage } = context;
+export function spawnTelegramManager(context: TelegramManagerContext): ChildProcess {
+  const { manager, initialMessage, chatId } = context;
   const sessionId = `${manager.id}_${Date.now()}`;
   const logPath = path.join(MANAGER_SESSIONS_DIR, `${sessionId}.log`);
+
+  // Store chat ID for this manager
+  managerChatIds.set(manager.id, chatId);
 
   log(`[Manager ${manager.name}] Spawning for: "${initialMessage.substring(0, 50)}..."`);
 
@@ -99,11 +110,15 @@ export function spawnManager(context: ManagerContext): ChildProcess {
     currentTask: initialMessage.substring(0, 100),
   });
 
-  const prompt = getManagerPrompt(manager, initialMessage);
+  const prompt = getManagerPrompt(manager, initialMessage, chatId);
+
+  // Get configured model for managers
+  const managerModel = getModel('defaultManager');
+  log(`[Manager ${manager.name}] Using model: ${managerModel}`);
 
   const claude = spawn(
     'claude',
-    ['--model', 'opus', '--dangerously-skip-permissions', '--add-dir', process.env.HOME || require('os').homedir()],
+    ['--model', managerModel, '--dangerously-skip-permissions', '--add-dir', process.env.HOME || require('os').homedir()],
     {
       cwd: process.env.HOME || require('os').homedir(),
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -134,14 +149,13 @@ export function spawnManager(context: ManagerContext): ChildProcess {
     const nextMsg = getNextMessage(manager.id);
     if (nextMsg) {
       log(`[Manager ${manager.name}] Processing next queued message`);
-      // Update manager and spawn for next message
       const updatedManager = updateManager(manager.id, { status: 'active' });
       if (updatedManager) {
-        const proc = spawnManager({ manager: updatedManager, initialMessage: nextMsg.content });
+        const storedChatId = managerChatIds.get(manager.id) || chatId;
+        const proc = spawnTelegramManager({ manager: updatedManager, initialMessage: nextMsg.content, chatId: storedChatId });
         setManagerProcess(manager.id, proc);
       }
     } else {
-      // No more messages, go idle
       updateManager(manager.id, {
         status: 'idle',
         currentTask: null,
@@ -164,12 +178,11 @@ export function spawnManager(context: ManagerContext): ChildProcess {
   return claude;
 }
 
-export function interruptManager(managerId: string, message: string): boolean {
+export function interruptManager(managerId: string, message: string, chatId: number): boolean {
   const proc = getManagerProcess(managerId);
 
   if (proc) {
     log(`[Manager] Interrupting manager ${managerId}`);
-    // Kill current process
     proc.kill('SIGTERM');
     removeManagerProcess(managerId);
   }
@@ -177,10 +190,13 @@ export function interruptManager(managerId: string, message: string): boolean {
   // Queue the interrupt message with high priority
   queueMessageToManager(managerId, message, 'interrupt');
 
+  // Update chat ID
+  managerChatIds.set(managerId, chatId);
+
   // Get manager and spawn new process for interrupt
   const manager = updateManager(managerId, { status: 'active' });
   if (manager) {
-    const newProc = spawnManager({ manager, initialMessage: message });
+    const newProc = spawnTelegramManager({ manager, initialMessage: message, chatId });
     setManagerProcess(managerId, newProc);
     return true;
   }
@@ -192,6 +208,11 @@ export function interruptManager(managerId: string, message: string): boolean {
 export function isManagerRunning(managerId: string): boolean {
   const proc = getManagerProcess(managerId);
   return proc !== undefined && !proc.killed;
+}
+
+// Get chat ID for a manager
+export function getManagerChatId(managerId: string): number | undefined {
+  return managerChatIds.get(managerId);
 }
 
 // Get all manager session logs

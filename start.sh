@@ -614,9 +614,9 @@ main() {
     echo "${BOLD}${NEON_GREEN}Insomnia is running! ⚡${NC}"
     echo
     echo "  ${CYAN}Dashboard:${NC} http://localhost:3333"
-    echo "  ${CYAN}Bridge logs:${NC} tail -f $BRIDGE_DIR/imessage-server.log"
+    echo "  ${CYAN}Bridge logs:${NC} tail -f $BRIDGE_DIR/bridge.log"
     echo
-    echo "${DIM}Send an iMessage to yourself to test the system.${NC}"
+    echo "${DIM}Send a message to your Telegram bot to test the system.${NC}"
     echo "${NEON_GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo
 
