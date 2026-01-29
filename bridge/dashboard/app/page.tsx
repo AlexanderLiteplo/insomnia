@@ -6,6 +6,8 @@ import type { HumanTask, SystemStatus } from '../lib/types';
 import { ArchitectureTree } from '../components/diagram/ArchitectureTree';
 import { DonutAnimation } from '../components/ascii/DonutAnimation';
 import { ModelSelector } from '../components/ModelSelector';
+import { AgentSpawner } from '../components/AgentSpawner';
+import { Tooltip, TooltipContent } from '../components/ui/Tooltip';
 
 // CSRF token management
 let csrfToken: string | null = null;
@@ -41,6 +43,13 @@ async function secureFetch(url: string, options: RequestInit = {}): Promise<Resp
   });
 }
 
+const PRIORITY_TOOLTIPS = {
+  low: 'Nice to have, no rush - can be done when time allows',
+  medium: 'Should be done soon - standard priority task',
+  high: 'Important task - needed for progress, prioritize this',
+  urgent: 'Blocking critical work - requires immediate attention',
+};
+
 function PriorityBadge({ priority }: { priority: HumanTask['priority'] }) {
   const styles = {
     low: 'bg-gray-800 text-gray-400 border border-gray-700',
@@ -49,9 +58,11 @@ function PriorityBadge({ priority }: { priority: HumanTask['priority'] }) {
     urgent: 'bg-red-900/50 text-red-400 border border-red-800',
   };
   return (
-    <span className={`text-[10px] px-2 py-0.5 rounded uppercase font-medium ${styles[priority]}`}>
-      {priority}
-    </span>
+    <Tooltip content={PRIORITY_TOOLTIPS[priority]} position="top">
+      <span className={`text-[10px] px-2 py-0.5 rounded uppercase font-medium ${styles[priority]}`}>
+        {priority}
+      </span>
+    </Tooltip>
   );
 }
 
@@ -90,6 +101,9 @@ export default function Dashboard() {
   const [showActions, setShowActions] = useState(false);
   const [showHealth, setShowHealth] = useState(false);
   const [showModels, setShowModels] = useState(false);
+  const [showSpawner, setShowSpawner] = useState(false);
+  const [isHealing, setIsHealing] = useState(false);
+  const [healStatus, setHealStatus] = useState<string | null>(null);
 
   const fetchStatus = async () => {
     try {
@@ -137,6 +151,34 @@ export default function Dashboard() {
       await fetchTasks();
     } catch (err) {
       console.error('Failed to update task:', err);
+    }
+  };
+
+  const triggerHeal = async () => {
+    if (isHealing) return;
+
+    setIsHealing(true);
+    setHealStatus('Spawning healer agent...');
+
+    try {
+      const res = await secureFetch('/api/health/heal', { method: 'POST' });
+      const data = await res.json();
+
+      if (res.ok) {
+        setHealStatus('Healer agent spawned! Investigating issues in background...');
+        setTimeout(() => {
+          setHealStatus(null);
+          fetchHealth();
+        }, 5000);
+      } else {
+        setHealStatus(`Failed: ${data.error || 'Unknown error'}`);
+        setTimeout(() => setHealStatus(null), 5000);
+      }
+    } catch (err) {
+      setHealStatus('Failed to spawn healer agent');
+      setTimeout(() => setHealStatus(null), 5000);
+    } finally {
+      setIsHealing(false);
     }
   };
 
@@ -190,50 +232,115 @@ export default function Dashboard() {
         {/* Right: Health + Stats + Actions */}
         <div className="flex items-center gap-2">
           {/* Health Status */}
-          <button
-            onClick={() => setShowHealth(!showHealth)}
-            className={`bg-[var(--card)] border rounded px-3 py-1.5 text-center cursor-pointer hover:border-gray-600 transition-colors ${
-              health?.status === 'healthy'
-                ? 'border-green-800'
-                : health?.status === 'degraded'
-                  ? 'border-yellow-800'
-                  : 'border-red-800'
-            }`}
+          <Tooltip
+            content={
+              <TooltipContent
+                title="System Health"
+                description={
+                  health?.status === 'healthy'
+                    ? '● Healthy: All services are running normally'
+                    : health?.status === 'degraded'
+                      ? '◐ Degraded: Some services have issues or warnings'
+                      : '○ Unhealthy: Critical services are down'
+                }
+              />
+            }
+            position="bottom"
           >
-            <div className={`text-lg font-medium ${
-              health?.status === 'healthy'
-                ? 'text-green-500'
-                : health?.status === 'degraded'
-                  ? 'text-yellow-500'
-                  : 'text-red-500'
-            }`}>
-              {health?.status === 'healthy' ? '●' : health?.status === 'degraded' ? '◐' : '○'}
-            </div>
-            <div className="text-[9px] text-gray-500">Health</div>
-          </button>
+            <button
+              onClick={() => setShowHealth(!showHealth)}
+              className={`bg-[var(--card)] border rounded px-3 py-1.5 text-center cursor-pointer hover:border-gray-600 transition-colors ${
+                health?.status === 'healthy'
+                  ? 'border-green-800'
+                  : health?.status === 'degraded'
+                    ? 'border-yellow-800'
+                    : 'border-red-800'
+              }`}
+            >
+              <div className={`text-lg font-medium ${
+                health?.status === 'healthy'
+                  ? 'text-green-500'
+                  : health?.status === 'degraded'
+                    ? 'text-yellow-500'
+                    : 'text-red-500'
+              }`}>
+                {health?.status === 'healthy' ? '●' : health?.status === 'degraded' ? '◐' : '○'}
+              </div>
+              <div className="text-[9px] text-gray-500">Health</div>
+            </button>
+          </Tooltip>
 
           {/* Model Config Button */}
-          <button
-            onClick={() => setShowModels(!showModels)}
-            className="bg-[var(--card)] border border-[var(--card-border)] rounded px-3 py-1.5 text-center cursor-pointer hover:border-gray-600 transition-colors"
+          <Tooltip
+            content={
+              <TooltipContent
+                title="AI Model Configuration"
+                description="Configure which AI models are used for different system roles (Responder, Managers, Workers)"
+              />
+            }
+            position="bottom"
           >
-            <div className="text-lg">🤖</div>
-            <div className="text-[9px] text-gray-500">Models</div>
-          </button>
+            <button
+              onClick={() => setShowModels(!showModels)}
+              className="bg-[var(--card)] border border-[var(--card-border)] rounded px-3 py-1.5 text-center cursor-pointer hover:border-gray-600 transition-colors"
+            >
+              <div className="text-lg">🤖</div>
+              <div className="text-[9px] text-gray-500">Models</div>
+            </button>
+          </Tooltip>
 
-          <div className="bg-[var(--card)] border border-[var(--card-border)] rounded px-3 py-1.5 text-center">
-            <div className="text-lg font-medium text-[var(--neon-green)]">
-              {status?.claudeProcesses ?? 0}
+          {/* Quick Agent Spawn Button */}
+          <Tooltip
+            content={
+              <TooltipContent
+                title="Quick Agent Spawn"
+                description="Instantly spawn a new Claude Code agent to help with any task"
+              />
+            }
+            position="bottom"
+          >
+            <button
+              onClick={() => setShowSpawner(!showSpawner)}
+              className="bg-[var(--card)] border border-[var(--card-border)] rounded px-3 py-1.5 text-center cursor-pointer hover:border-gray-600 transition-colors hover:border-[var(--neon-green)]/50"
+            >
+              <div className="text-lg font-bold text-[var(--neon-green)]">+</div>
+              <div className="text-[9px] text-gray-500">Spawn</div>
+            </button>
+          </Tooltip>
+
+          <Tooltip
+            content={
+              <TooltipContent
+                title="Active Claude Processes"
+                description="Number of Claude Code processes currently running on this machine, including managers, workers, and subagents"
+              />
+            }
+            position="bottom"
+          >
+            <div className="bg-[var(--card)] border border-[var(--card-border)] rounded px-3 py-1.5 text-center">
+              <div className="text-lg font-medium text-[var(--neon-green)]">
+                {status?.claudeProcesses ?? 0}
+              </div>
+              <div className="text-[9px] text-gray-500">Claudes</div>
             </div>
-            <div className="text-[9px] text-gray-500">Claudes</div>
-          </div>
+          </Tooltip>
 
-          <button
-            onClick={() => setShowActions(!showActions)}
-            className="bg-[var(--card)] border border-[var(--card-border)] rounded px-3 py-2.5 hover:border-gray-600 transition-colors relative"
+          <Tooltip
+            content={
+              <TooltipContent
+                title="Quick Actions"
+                description="Restart services, refresh data, and other system maintenance actions"
+              />
+            }
+            position="bottom"
           >
-            <span className="text-gray-500 text-sm">•••</span>
-          </button>
+            <button
+              onClick={() => setShowActions(!showActions)}
+              className="bg-[var(--card)] border border-[var(--card-border)] rounded px-3 py-2.5 hover:border-gray-600 transition-colors relative"
+            >
+              <span className="text-gray-500 text-sm">•••</span>
+            </button>
+          </Tooltip>
 
           {/* Health Dropdown */}
           <AnimatePresence>
@@ -259,28 +366,82 @@ export default function Dashboard() {
                   </div>
                   <p className="text-[11px] text-gray-400 mb-3">{health.summary}</p>
                   <div className="space-y-2">
-                    {Object.entries(health.checks).map(([name, check]) => (
-                      <div key={name} className="flex items-center justify-between text-[10px]">
-                        <span className="text-gray-400">
-                          {name === 'telegramBridge' ? 'Telegram Bridge' :
-                           name === 'orchestratorWorker' ? 'Orchestrator Worker' :
-                           name === 'orchestratorManager' ? 'Orchestrator Manager' :
-                           'Dashboard'}
-                        </span>
-                        <span className={`flex items-center gap-1 ${
-                          check.status === 'pass'
-                            ? 'text-green-500'
-                            : check.status === 'warn'
-                              ? 'text-yellow-500'
-                              : 'text-red-500'
-                        }`}>
-                          {check.status === 'pass' ? '●' : check.status === 'warn' ? '◐' : '○'}
-                          <span>{check.message}</span>
-                        </span>
-                      </div>
-                    ))}
+                    {Object.entries(health.checks).map(([name, check]) => {
+                      const descriptions: Record<string, string> = {
+                        telegramBridge: 'Handles incoming Telegram messages and routes them to the system',
+                        orchestratorWorker: 'Executes tasks from the task queue - implements features and fixes',
+                        orchestratorManager: 'Reviews worker output, approves changes, and manages task flow',
+                        dashboard: 'This web interface for monitoring the system',
+                      };
+                      return (
+                        <Tooltip
+                          key={name}
+                          content={descriptions[name]}
+                          position="left"
+                        >
+                          <div className="flex items-center justify-between text-[10px] cursor-help">
+                            <span className="text-gray-400">
+                              {name === 'telegramBridge' ? 'Telegram Bridge' :
+                               name === 'orchestratorWorker' ? 'Orchestrator Worker' :
+                               name === 'orchestratorManager' ? 'Orchestrator Manager' :
+                               'Dashboard'}
+                            </span>
+                            <span className={`flex items-center gap-1 ${
+                              check.status === 'pass'
+                                ? 'text-green-500'
+                                : check.status === 'warn'
+                                  ? 'text-yellow-500'
+                                  : 'text-red-500'
+                            }`}>
+                              {check.status === 'pass' ? '●' : check.status === 'warn' ? '◐' : '○'}
+                              <span>{check.message}</span>
+                            </span>
+                          </div>
+                        </Tooltip>
+                      );
+                    })}
                   </div>
-                  <div className="mt-3 pt-2 border-t border-[var(--card-border)]">
+                  {/* Heal Button - only show when not healthy */}
+                  {health.status !== 'healthy' && (
+                    <div className="mt-3 pt-2 border-t border-[var(--card-border)]">
+                      <Tooltip
+                        content={
+                          <TooltipContent
+                            title="Auto-Heal"
+                            description="Spawns a Claude Code agent in the background to investigate and fix unhealthy services automatically"
+                          />
+                        }
+                        position="top"
+                      >
+                        <button
+                          onClick={triggerHeal}
+                          disabled={isHealing}
+                          className={`w-full px-3 py-2 rounded text-xs font-medium transition-colors ${
+                            isHealing
+                              ? 'bg-purple-900/30 text-purple-400 cursor-wait'
+                              : 'bg-purple-900/50 hover:bg-purple-900/70 text-purple-300 border border-purple-800'
+                          }`}
+                        >
+                          {isHealing ? (
+                            <span className="flex items-center justify-center gap-2">
+                              <span className="w-3 h-3 border border-purple-400 border-t-transparent rounded-full animate-spin" />
+                              Healing...
+                            </span>
+                          ) : (
+                            <span className="flex items-center justify-center gap-2">
+                              <span>🩹</span>
+                              Auto-Heal
+                            </span>
+                          )}
+                        </button>
+                      </Tooltip>
+                      {healStatus && (
+                        <p className="text-[10px] text-purple-400 mt-2 text-center">{healStatus}</p>
+                      )}
+                    </div>
+                  )}
+
+                  <div className={`mt-3 pt-2 border-t border-[var(--card-border)] ${health.status !== 'healthy' ? '' : ''}`}>
                     <span className="text-[9px] text-gray-600">
                       Last check: {new Date(health.timestamp).toLocaleTimeString()}
                     </span>
@@ -297,6 +458,14 @@ export default function Dashboard() {
             getCsrfToken={getCsrfToken}
           />
 
+          {/* Agent Spawner */}
+          <AgentSpawner
+            isOpen={showSpawner}
+            onClose={() => setShowSpawner(false)}
+            getCsrfToken={getCsrfToken}
+            onSpawn={() => fetchStatus()}
+          />
+
           {/* Actions Dropdown */}
           <AnimatePresence>
             {showActions && (
@@ -307,41 +476,56 @@ export default function Dashboard() {
                 exit={{ opacity: 0, y: -5 }}
               >
                 <div className="p-1">
-                  <button
-                    onClick={() => {
-                      secureFetch('/api/bridge/restart', { method: 'POST' }).then(() => {
+                  <Tooltip
+                    content="Stop and restart the Telegram bridge process. Use when bridge is unresponsive or stuck."
+                    position="left"
+                  >
+                    <button
+                      onClick={() => {
+                        secureFetch('/api/bridge/restart', { method: 'POST' }).then(() => {
+                          fetchStatus();
+                          fetchHealth();
+                        });
+                        setShowActions(false);
+                      }}
+                      className="w-full px-3 py-1.5 text-left text-xs text-green-500 hover:bg-green-900/20 rounded"
+                    >
+                      Restart Bridge
+                    </button>
+                  </Tooltip>
+                  <Tooltip
+                    content="Stop and restart the orchestrator worker/manager processes. Use when tasks are stuck."
+                    position="left"
+                  >
+                    <button
+                      onClick={() => {
+                        secureFetch('/api/orchestrators/restart', { method: 'POST' }).then(() => {
+                          fetchStatus();
+                          fetchHealth();
+                        });
+                        setShowActions(false);
+                      }}
+                      className="w-full px-3 py-1.5 text-left text-xs text-pink-500 hover:bg-pink-900/20 rounded"
+                    >
+                      Restart Orchestrator
+                    </button>
+                  </Tooltip>
+                  <Tooltip
+                    content="Manually refresh all dashboard data including status, tasks, and health checks."
+                    position="left"
+                  >
+                    <button
+                      onClick={() => {
                         fetchStatus();
+                        fetchTasks();
                         fetchHealth();
-                      });
-                      setShowActions(false);
-                    }}
-                    className="w-full px-3 py-1.5 text-left text-xs text-green-500 hover:bg-green-900/20 rounded"
-                  >
-                    Restart Bridge
-                  </button>
-                  <button
-                    onClick={() => {
-                      secureFetch('/api/orchestrators/restart', { method: 'POST' }).then(() => {
-                        fetchStatus();
-                        fetchHealth();
-                      });
-                      setShowActions(false);
-                    }}
-                    className="w-full px-3 py-1.5 text-left text-xs text-pink-500 hover:bg-pink-900/20 rounded"
-                  >
-                    Restart Orchestrator
-                  </button>
-                  <button
-                    onClick={() => {
-                      fetchStatus();
-                      fetchTasks();
-                      fetchHealth();
-                      setShowActions(false);
-                    }}
-                    className="w-full px-3 py-1.5 text-left text-xs text-gray-400 hover:bg-gray-800 rounded"
-                  >
-                    Refresh
-                  </button>
+                        setShowActions(false);
+                      }}
+                      className="w-full px-3 py-1.5 text-left text-xs text-gray-400 hover:bg-gray-800 rounded"
+                    >
+                      Refresh
+                    </button>
+                  </Tooltip>
                 </div>
               </motion.div>
             )}
@@ -368,17 +552,32 @@ export default function Dashboard() {
         <div className="w-72 flex-shrink-0 border-l border-[var(--card-border)] bg-[var(--card)]/30 flex flex-col">
           <div className="p-3 border-b border-[var(--card-border)] flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <h2 className="font-medium text-white text-sm">Tasks</h2>
+              <Tooltip
+                content={
+                  <TooltipContent
+                    title="Human Tasks"
+                    description="Tasks that require human action - things Claude cannot do autonomously (like deploying to stores, physical actions, or decisions needed)"
+                  />
+                }
+                position="left"
+              >
+                <h2 className="font-medium text-white text-sm cursor-help">Tasks</h2>
+              </Tooltip>
               {pendingTasks.length > 0 && (
-                <span className={`text-[10px] px-1.5 py-0.5 rounded ${
-                  urgentCount > 0
-                    ? 'bg-red-900/50 text-red-400'
-                    : highCount > 0
-                      ? 'bg-yellow-900/50 text-yellow-500'
-                      : 'bg-gray-800 text-gray-400'
-                }`}>
-                  {pendingTasks.length}
-                </span>
+                <Tooltip
+                  content={`${pendingTasks.length} pending task${pendingTasks.length > 1 ? 's' : ''} requiring your attention`}
+                  position="bottom"
+                >
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded cursor-help ${
+                    urgentCount > 0
+                      ? 'bg-red-900/50 text-red-400'
+                      : highCount > 0
+                        ? 'bg-yellow-900/50 text-yellow-500'
+                        : 'bg-gray-800 text-gray-400'
+                  }`}>
+                    {pendingTasks.length}
+                  </span>
+                </Tooltip>
               )}
             </div>
           </div>
@@ -423,18 +622,22 @@ export default function Dashboard() {
                   )}
 
                   <div className="flex gap-1">
-                    <button
-                      onClick={() => updateTask(task.id, { status: 'completed' })}
-                      className="flex-1 px-2 py-1 bg-green-900/30 hover:bg-green-900/50 text-green-500 border border-green-900 rounded text-[10px] font-medium"
-                    >
-                      Done
-                    </button>
-                    <button
-                      onClick={() => updateTask(task.id, { status: 'dismissed' })}
-                      className="px-2 py-1 bg-gray-800 hover:bg-gray-700 text-gray-400 rounded text-[10px]"
-                    >
-                      Skip
-                    </button>
+                    <Tooltip content="Mark this task as completed - you've done what was requested" position="top">
+                      <button
+                        onClick={() => updateTask(task.id, { status: 'completed' })}
+                        className="flex-1 px-2 py-1 bg-green-900/30 hover:bg-green-900/50 text-green-500 border border-green-900 rounded text-[10px] font-medium"
+                      >
+                        Done
+                      </button>
+                    </Tooltip>
+                    <Tooltip content="Dismiss this task - no longer needed or not applicable" position="top">
+                      <button
+                        onClick={() => updateTask(task.id, { status: 'dismissed' })}
+                        className="px-2 py-1 bg-gray-800 hover:bg-gray-700 text-gray-400 rounded text-[10px]"
+                      >
+                        Skip
+                      </button>
+                    </Tooltip>
                   </div>
                 </motion.div>
               ))
@@ -444,13 +647,14 @@ export default function Dashboard() {
       </div>
 
       {/* Click outside to close dropdowns */}
-      {(showActions || showHealth || showModels) && (
+      {(showActions || showHealth || showModels || showSpawner) && (
         <div
           className="fixed inset-0 z-40"
           onClick={() => {
             setShowActions(false);
             setShowHealth(false);
             setShowModels(false);
+            setShowSpawner(false);
           }}
         />
       )}

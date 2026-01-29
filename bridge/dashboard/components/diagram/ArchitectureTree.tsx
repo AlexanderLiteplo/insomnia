@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import { Robot } from '../robots/Robot';
 import { StatusDot } from '../ui/StatusDot';
+import { Tooltip, TooltipContent } from '../ui/Tooltip';
 import type { BridgeStatus, Manager, Project } from '../../lib/types';
 
 interface OrchestratorStatus {
@@ -34,6 +35,12 @@ const MANAGER_COLORS = [
   '#aa66aa', // magenta
 ];
 
+const STATUS_TOOLTIPS = {
+  processing: 'Currently processing a task - Claude is actively working',
+  online: 'Manager is active and ready to receive new tasks',
+  offline: 'Manager is idle/sleeping - will wake when needed',
+};
+
 function ManagerRow({
   manager,
   color,
@@ -46,6 +53,7 @@ function ManagerRow({
   const isProcessing = manager.status === 'processing';
   const hasQueue = manager.messageQueue.length > 0;
   const robotState = isProcessing ? 'running' : manager.status === 'active' ? 'idle' : 'sleeping';
+  const statusType = isProcessing ? 'processing' : manager.status === 'active' ? 'online' : 'offline';
 
   return (
     <motion.div
@@ -55,16 +63,33 @@ function ManagerRow({
       transition={{ delay: index * 0.03 }}
     >
       {/* Robot for this manager */}
-      <Robot state={robotState} size={32} color={color} />
+      <Tooltip
+        content={
+          <TooltipContent
+            title={manager.name}
+            description={`Handles topics: ${manager.topics?.join(', ') || 'general'}`}
+          />
+        }
+        position="right"
+      >
+        <div>
+          <Robot state={robotState} size={32} color={color} />
+        </div>
+      </Tooltip>
 
       {/* Manager info */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className="font-medium text-white text-xs truncate">{manager.name}</span>
           {hasQueue && (
-            <span className="text-[10px] bg-yellow-900/50 text-yellow-500 px-1.5 py-0.5 rounded">
-              {manager.messageQueue.length}
-            </span>
+            <Tooltip
+              content={`${manager.messageQueue.length} message${manager.messageQueue.length > 1 ? 's' : ''} queued - waiting to be processed`}
+              position="top"
+            >
+              <span className="text-[10px] bg-yellow-900/50 text-yellow-500 px-1.5 py-0.5 rounded cursor-help">
+                {manager.messageQueue.length}
+              </span>
+            </Tooltip>
           )}
         </div>
         {manager.currentTask && (
@@ -73,7 +98,11 @@ function ManagerRow({
       </div>
 
       {/* Status indicator */}
-      <StatusDot status={isProcessing ? 'processing' : manager.status === 'active' ? 'online' : 'offline'} />
+      <Tooltip content={STATUS_TOOLTIPS[statusType]} position="left">
+        <div>
+          <StatusDot status={statusType} />
+        </div>
+      </Tooltip>
     </motion.div>
   );
 }
@@ -85,16 +114,36 @@ function OrchestratorTeam({ orchestrator }: { orchestrator?: OrchestratorStatus 
   return (
     <div className="flex items-center gap-2">
       {/* Worker robot */}
-      <div className="text-center">
-        <Robot state={workerState} size={28} color="#66aa88" />
-        <div className="text-[9px] text-gray-500 mt-1">Worker</div>
-      </div>
+      <Tooltip
+        content={
+          <TooltipContent
+            title="Orchestrator Worker"
+            description="Implements tasks from the queue - writes code, runs tests, and marks tasks done when tests pass"
+          />
+        }
+        position="top"
+      >
+        <div className="text-center">
+          <Robot state={workerState} size={28} color="#66aa88" />
+          <div className="text-[9px] text-gray-500 mt-1">Worker</div>
+        </div>
+      </Tooltip>
 
       {/* Manager robot */}
-      <div className="text-center">
-        <Robot state={managerState} size={28} color="#aa8866" />
-        <div className="text-[9px] text-gray-500 mt-1">Manager</div>
-      </div>
+      <Tooltip
+        content={
+          <TooltipContent
+            title="Orchestrator Manager"
+            description="Reviews completed work, approves or requests changes, generates skills from learnings"
+          />
+        }
+        position="top"
+      >
+        <div className="text-center">
+          <Robot state={managerState} size={28} color="#aa8866" />
+          <div className="text-[9px] text-gray-500 mt-1">Manager</div>
+        </div>
+      </Tooltip>
     </div>
   );
 }
@@ -117,66 +166,84 @@ export function ArchitectureTree({
       {/* Left Column: Bridge + Responder */}
       <div className="flex flex-col gap-4 w-48 flex-shrink-0">
         {/* Bridge */}
-        <div className={`bg-[var(--card)] border rounded-lg p-3 ${
-          bridge.running && bridge.healthy
-            ? 'border-[var(--neon-green)]'
-            : bridge.running
-              ? 'border-yellow-800'
-              : 'border-[var(--card-border)]'
-        }`}>
-          <div className="flex items-center gap-2 mb-2">
-            <Robot state={bridge.running ? 'running' : 'sleeping'} size={36} color="#6688cc" />
-            <div>
-              <h3 className="font-medium text-white text-sm">Telegram Bridge</h3>
-              <div className="flex items-center gap-1">
-                <span className={`text-[10px] ${
-                  bridge.running && bridge.healthy
-                    ? 'text-green-500'
-                    : bridge.running
-                      ? 'text-yellow-500'
-                      : 'text-gray-500'
-                }`}>
-                  {bridge.running && bridge.healthy
-                    ? '● Healthy'
-                    : bridge.running
-                      ? '● Running'
-                      : '○ Stopped'}
-                </span>
+        <Tooltip
+          content={
+            <TooltipContent
+              title="Telegram Bridge"
+              description="Connects to Telegram API using long polling. Receives messages and routes them to the Responder for classification."
+            />
+          }
+          position="right"
+        >
+          <div className={`bg-[var(--card)] border rounded-lg p-3 ${
+            bridge.running && bridge.healthy
+              ? 'border-[var(--neon-green)]'
+              : bridge.running
+                ? 'border-yellow-800'
+                : 'border-[var(--card-border)]'
+          }`}>
+            <div className="flex items-center gap-2 mb-2">
+              <Robot state={bridge.running ? 'running' : 'sleeping'} size={36} color="#6688cc" />
+              <div>
+                <h3 className="font-medium text-white text-sm">Telegram Bridge</h3>
+                <div className="flex items-center gap-1">
+                  <span className={`text-[10px] ${
+                    bridge.running && bridge.healthy
+                      ? 'text-green-500'
+                      : bridge.running
+                        ? 'text-yellow-500'
+                        : 'text-gray-500'
+                  }`}>
+                    {bridge.running && bridge.healthy
+                      ? '● Healthy'
+                      : bridge.running
+                        ? '● Running'
+                        : '○ Stopped'}
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
-          <div className="text-[10px] text-gray-500 space-y-0.5">
-            {bridge.botUsername && (
-              <div className="flex justify-between">
-                <span>Bot</span>
-                <span className="text-blue-400">@{bridge.botUsername}</span>
+            <div className="text-[10px] text-gray-500 space-y-0.5">
+              {bridge.botUsername && (
+                <Tooltip content="The Telegram bot username this bridge is connected to" position="right">
+                  <div className="flex justify-between cursor-help">
+                    <span>Bot</span>
+                    <span className="text-blue-400">@{bridge.botUsername}</span>
+                  </div>
+                </Tooltip>
+              )}
+              <Tooltip content="Process ID - unique identifier for the running bridge process" position="right">
+                <div className="flex justify-between cursor-help">
+                  <span>PID</span>
+                  <span className="text-gray-400">{bridge.pid ?? '—'}</span>
+                </div>
+              </Tooltip>
+              <Tooltip content="How long the bridge has been running since last restart" position="right">
+                <div className="flex justify-between cursor-help">
+                  <span>Uptime</span>
+                  <span className="text-gray-400">{bridge.uptime}</span>
+                </div>
+              </Tooltip>
+              {bridge.lastPollTime && (
+                <Tooltip content="When the bridge last checked Telegram for new messages" position="right">
+                  <div className="flex justify-between cursor-help">
+                    <span>Last Poll</span>
+                    <span className="text-gray-400">
+                      {new Date(bridge.lastPollTime).toLocaleTimeString()}
+                    </span>
+                  </div>
+                </Tooltip>
+              )}
+            </div>
+            {bridge.errorMessage && (
+              <div className="mt-2 p-1.5 bg-red-900/30 rounded border border-red-900/50">
+                <p className="text-[9px] text-red-400 truncate" title={bridge.errorMessage}>
+                  ⚠ {bridge.errorMessage}
+                </p>
               </div>
             )}
-            <div className="flex justify-between">
-              <span>PID</span>
-              <span className="text-gray-400">{bridge.pid ?? '—'}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Uptime</span>
-              <span className="text-gray-400">{bridge.uptime}</span>
-            </div>
-            {bridge.lastPollTime && (
-              <div className="flex justify-between">
-                <span>Last Poll</span>
-                <span className="text-gray-400">
-                  {new Date(bridge.lastPollTime).toLocaleTimeString()}
-                </span>
-              </div>
-            )}
           </div>
-          {bridge.errorMessage && (
-            <div className="mt-2 p-1.5 bg-red-900/30 rounded border border-red-900/50">
-              <p className="text-[9px] text-red-400 truncate" title={bridge.errorMessage}>
-                ⚠ {bridge.errorMessage}
-              </p>
-            </div>
-          )}
-        </div>
+        </Tooltip>
 
         {/* Connector */}
         <div className="flex justify-center">
@@ -184,16 +251,28 @@ export function ArchitectureTree({
         </div>
 
         {/* Responder */}
-        <div className={`bg-[var(--card)] border rounded-lg p-3 ${responderActive ? 'border-orange-800' : 'border-[var(--card-border)]'}`}>
-          <div className="flex items-center gap-2">
-            <Robot state={responderActive ? 'running' : 'idle'} size={32} color="#cc8844" />
-            <div>
-              <h3 className="font-medium text-white text-sm">Responder</h3>
-              <span className="text-[10px] text-gray-500">Haiku</span>
+        <Tooltip
+          content={
+            <TooltipContent
+              title="Responder (Haiku)"
+              description="Fast classifier that decides how to handle each incoming message: CREATE new manager, QUEUE to existing, or INTERRUPT active work."
+            />
+          }
+          position="right"
+        >
+          <div className={`bg-[var(--card)] border rounded-lg p-3 ${responderActive ? 'border-orange-800' : 'border-[var(--card-border)]'}`}>
+            <div className="flex items-center gap-2">
+              <Robot state={responderActive ? 'running' : 'idle'} size={32} color="#cc8844" />
+              <div>
+                <h3 className="font-medium text-white text-sm">Responder</h3>
+                <Tooltip content="Uses Haiku model for fast, lightweight message classification" position="right">
+                  <span className="text-[10px] text-gray-500 cursor-help">Haiku</span>
+                </Tooltip>
+              </div>
             </div>
+            <p className="text-[10px] text-gray-600 mt-2">Routes messages</p>
           </div>
-          <p className="text-[10px] text-gray-600 mt-2">Routes messages</p>
-        </div>
+        </Tooltip>
 
         {/* Connector */}
         <div className="flex justify-center">
@@ -201,28 +280,42 @@ export function ArchitectureTree({
         </div>
 
         {/* Orchestrator */}
-        <div className={`bg-[var(--card)] border rounded-lg p-3 ${
-          orchestrator?.workerRunning || orchestrator?.managerRunning
-            ? 'border-green-900'
-            : 'border-[var(--card-border)]'
-        }`}>
-          <h3 className="font-medium text-white text-sm mb-2">Orchestrator</h3>
-          <OrchestratorTeam orchestrator={orchestrator} />
-          <div className="text-[10px] text-gray-600 mt-2 space-y-0.5">
-            <div className="flex justify-between">
-              <span>Worker</span>
-              <span className={orchestrator?.workerRunning ? 'text-green-500' : 'text-gray-500'}>
-                {orchestrator?.workerRunning ? `PID ${orchestrator.workerPid}` : 'Stopped'}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span>Manager</span>
-              <span className={orchestrator?.managerRunning ? 'text-green-500' : 'text-gray-500'}>
-                {orchestrator?.managerRunning ? `PID ${orchestrator.managerPid}` : 'Stopped'}
-              </span>
+        <Tooltip
+          content={
+            <TooltipContent
+              title="Orchestrator System"
+              description="Autonomous task execution system. Worker implements tasks, Manager reviews and approves. Works through tasks.json file."
+            />
+          }
+          position="right"
+        >
+          <div className={`bg-[var(--card)] border rounded-lg p-3 ${
+            orchestrator?.workerRunning || orchestrator?.managerRunning
+              ? 'border-green-900'
+              : 'border-[var(--card-border)]'
+          }`}>
+            <h3 className="font-medium text-white text-sm mb-2">Orchestrator</h3>
+            <OrchestratorTeam orchestrator={orchestrator} />
+            <div className="text-[10px] text-gray-600 mt-2 space-y-0.5">
+              <Tooltip content="Worker process that implements tasks - writes code, runs tests" position="right">
+                <div className="flex justify-between cursor-help">
+                  <span>Worker</span>
+                  <span className={orchestrator?.workerRunning ? 'text-green-500' : 'text-gray-500'}>
+                    {orchestrator?.workerRunning ? `PID ${orchestrator.workerPid}` : 'Stopped'}
+                  </span>
+                </div>
+              </Tooltip>
+              <Tooltip content="Manager process that reviews work and approves/rejects changes" position="right">
+                <div className="flex justify-between cursor-help">
+                  <span>Manager</span>
+                  <span className={orchestrator?.managerRunning ? 'text-green-500' : 'text-gray-500'}>
+                    {orchestrator?.managerRunning ? `PID ${orchestrator.managerPid}` : 'Stopped'}
+                  </span>
+                </div>
+              </Tooltip>
             </div>
           </div>
-        </div>
+        </Tooltip>
       </div>
 
       {/* Arrow */}
@@ -233,14 +326,28 @@ export function ArchitectureTree({
       {/* Managers List */}
       <div className="flex-1 min-w-0 flex flex-col">
         <div className="flex items-center gap-2 mb-3">
-          <h3 className="font-medium text-white">Managers</h3>
-          <span className="text-[10px] text-gray-500 bg-[var(--card)] px-2 py-0.5 rounded">
-            {managers.length} total
-          </span>
-          {activeManagers.length > 0 && (
-            <span className="text-[10px] text-green-600 bg-green-900/30 px-2 py-0.5 rounded">
-              {activeManagers.length} active
+          <Tooltip
+            content={
+              <TooltipContent
+                title="Manager Agents"
+                description="Long-running Opus agents that handle specific topics. Each manager can spawn workers and orchestrators for complex tasks."
+              />
+            }
+            position="bottom"
+          >
+            <h3 className="font-medium text-white cursor-help">Managers</h3>
+          </Tooltip>
+          <Tooltip content="Total number of manager agents registered in the system" position="bottom">
+            <span className="text-[10px] text-gray-500 bg-[var(--card)] px-2 py-0.5 rounded cursor-help">
+              {managers.length} total
             </span>
+          </Tooltip>
+          {activeManagers.length > 0 && (
+            <Tooltip content="Managers currently processing tasks or with queued messages" position="bottom">
+              <span className="text-[10px] text-green-600 bg-green-900/30 px-2 py-0.5 rounded cursor-help">
+                {activeManagers.length} active
+              </span>
+            </Tooltip>
           )}
         </div>
 
@@ -269,7 +376,17 @@ export function ArchitectureTree({
 
       {/* Projects */}
       <div className="w-48 flex-shrink-0 flex flex-col">
-        <h3 className="font-medium text-white mb-3">Projects</h3>
+        <Tooltip
+          content={
+            <TooltipContent
+              title="Active Projects"
+              description="Projects being built by the orchestrator system. Progress shows completed tasks out of total tasks."
+            />
+          }
+          position="bottom"
+        >
+          <h3 className="font-medium text-white mb-3 cursor-help">Projects</h3>
+        </Tooltip>
         <div className="flex-1 overflow-y-auto bg-[var(--card)] border border-[var(--card-border)] rounded-lg p-2">
           {projects.length === 0 ? (
             <div className="text-center py-4">
@@ -280,18 +397,24 @@ export function ArchitectureTree({
             projects.map((project, i) => {
               const percent = project.total > 0 ? Math.round((project.completed / project.total) * 100) : 0;
               return (
-                <div key={i} className="py-2 border-b border-[var(--card-border)] last:border-0">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs text-white truncate">{project.name}</span>
-                    <span className="text-[10px] text-gray-500">{percent}%</span>
+                <Tooltip
+                  key={i}
+                  content={`${project.completed} of ${project.total} tasks completed`}
+                  position="left"
+                >
+                  <div className="py-2 border-b border-[var(--card-border)] last:border-0 cursor-help">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs text-white truncate">{project.name}</span>
+                      <span className="text-[10px] text-gray-500">{percent}%</span>
+                    </div>
+                    <div className="w-full bg-gray-800 rounded h-1">
+                      <div
+                        className="bg-green-600 h-1 rounded"
+                        style={{ width: `${percent}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="w-full bg-gray-800 rounded h-1">
-                    <div
-                      className="bg-green-600 h-1 rounded"
-                      style={{ width: `${percent}%` }}
-                    />
-                  </div>
-                </div>
+                </Tooltip>
               );
             })
           )}
