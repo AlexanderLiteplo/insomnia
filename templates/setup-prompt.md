@@ -1,6 +1,6 @@
 # Insomnia Setup Instructions
 
-You are setting up **Insomnia**, a Claude automation system that receives Telegram messages and routes them to specialized AI manager agents.
+You are setting up **Insomnia**, a Claude automation system that receives Telegram messages and routes them to specialized AI agents.
 
 ## CRITICAL: Two-Phase Setup Process
 
@@ -21,7 +21,7 @@ The system is installed at: `{{INSTALL_DIR}}`
 
 # PHASE 1: Information Gathering
 
-Start by greeting the user and explaining what Insomnia is (1-2 sentences max). Then collect ALL of the following information through conversation. Use the AskUserQuestion tool to ask multiple questions at once when appropriate.
+Start by greeting the user and explaining what Insomnia is (1-2 sentences max). Then collect ALL of the following information through conversation.
 
 ## Required Information to Collect:
 
@@ -29,59 +29,75 @@ Start by greeting the user and explaining what Insomnia is (1-2 sentences max). 
 - Their name for personalization
 
 ### 2. Telegram Bot Token (REQUIRED)
-Guide the user through creating a Telegram bot:
-1. Open Telegram and search for @BotFather
-2. Start a chat and send: /newbot
-3. Follow the prompts to name the bot and give it a username ending in "bot"
-4. BotFather will provide a token that looks like: `123456789:ABCdefGHIjklMNOpqrsTUVwxyz`
-5. Have them paste the token
+
+Walk them through this EXACTLY step by step. Be very explicit:
+
+**Step 1: Open Telegram**
+- On your phone: Open the Telegram app
+- On desktop: Open Telegram Desktop or go to web.telegram.org
+
+**Step 2: Search for BotFather**
+- Tap the search icon (magnifying glass) at the top
+- Type exactly: `@BotFather` (include the @ symbol)
+- Look for the one with a blue checkmark - that's the official one
+- Tap on it to open the chat
+
+**Step 3: Start the chat**
+- Tap the "Start" button at the bottom, OR
+- Type `/start` and send it
+
+**Step 4: Create a new bot**
+- Type exactly: `/newbot` and send it
+- BotFather will ask for a name - type any name you want (e.g., "My Insomnia Bot")
+- BotFather will ask for a username - this MUST end in "bot" (e.g., "myinsomnia_bot")
+- If the username is taken, try adding numbers or underscores
+
+**Step 5: Copy the token**
+- BotFather will send you a message containing your bot token
+- It looks like this: `123456789:ABCdefGHIjklMNOpqrsTUVwxyz`
+- Copy this ENTIRE token (tap and hold on mobile, or select and copy on desktop)
+- Paste it here when asked
 
 ### 3. Telegram User ID (OPTIONAL but recommended)
-To restrict the bot to only respond to them:
-1. Search for @userinfobot on Telegram
-2. Start a chat - it will show their user ID
-3. Providing this adds security so only they can control the bot
+
+This restricts the bot so only YOU can control it. Walk them through:
+
+**Step 1: Search for userinfobot**
+- In Telegram, tap the search icon
+- Type exactly: `@userinfobot`
+- Tap on it to open the chat
+
+**Step 2: Get your ID**
+- Tap "Start" or send `/start`
+- The bot will immediately reply with your info
+- Look for the line that says "Id:" followed by a number (e.g., `Id: 123456789`)
+- Copy just the number
 
 ### 4. Working Directory (OPTIONAL)
-- Where Claude should work
+- Where Claude should work when you send it tasks
 - Default: home directory `~`
 
-### 5. CLI Tools to Install (OPTIONAL)
-Ask which of these they want to install/authenticate:
-- [ ] Vercel CLI - for deploying to Vercel
-- [ ] Supabase CLI - for database management
-- [ ] gcloud CLI - for Google Cloud
-
-### 6. Desktop App (OPTIONAL but recommended for macOS)
+### 5. Desktop App (OPTIONAL - macOS only)
 Ask if they want to create a desktop app:
-- This creates an Insomnia.app in /Applications
-- Can be pinned to the Dock for quick access
-- Launch Insomnia with a single click or via Spotlight
-- Makes it feel like a native macOS application
+- Creates Insomnia.app in /Applications
+- Can launch from Dock or Spotlight
+- Single click to start everything
 
 ## After Collecting All Information:
 
 Display a summary like this:
 
 ```
-┌─────────────────────────────────────────┐
-│         SETUP CONFIGURATION             │
-├─────────────────────────────────────────┤
-│ Name:           [their name]            │
-│ Bot Token:      [first 10 chars]...     │
-│ User ID:        [ID or "not set"]       │
-│ Working Dir:    [dir or "~"]            │
-│                                         │
-│ CLI Tools:                              │
-│   - Vercel:     [Yes/No]                │
-│   - Supabase:   [Yes/No]                │
-│   - gcloud:     [Yes/No]                │
-│                                         │
-│ Desktop App:    [Yes/No]                │
-└─────────────────────────────────────────┘
+Setup Configuration
+-------------------
+Name:           [their name]
+Bot Token:      [first 10 chars]...
+User ID:        [ID or "not set"]
+Working Dir:    [dir or "~"]
+Desktop App:    [Yes/No]
 ```
 
-Then ask: **"Does this look correct? If so, I'll proceed with the setup."**
+Then ask: **"Does this look correct? Type 'yes' to proceed with setup."**
 
 ---
 
@@ -89,7 +105,7 @@ Then ask: **"Does this look correct? If so, I'll proceed with the setup."**
 
 Once the user confirms, say something like:
 
-**"Great! I'm now going to set everything up for you. This will take a minute..."**
+**"Setting everything up now..."**
 
 Then execute these steps IN ORDER:
 
@@ -106,22 +122,10 @@ cd {{INSTALL_DIR}}/bridge && npm install && npm run build
 cd {{INSTALL_DIR}}/bridge/dashboard && npm install
 ```
 
-### Step 3: Install Optional CLI Tools (if requested)
-Only run the ones they selected:
-- Vercel: `npm install -g vercel && vercel login`
-- Supabase: `brew install supabase/tap/supabase && supabase login`
-- gcloud: `brew install --cask google-cloud-sdk && gcloud auth login`
-
-### Step 3.5: Create Desktop App (if requested)
-If they chose to create the desktop app:
+### Step 3: Create Desktop App (if requested, macOS only)
 ```bash
 {{INSTALL_DIR}}/scripts/create-desktop-app.sh
 ```
-
-After the script completes:
-1. Tell them where the app was created (/Applications/Insomnia.app)
-2. Explain how to pin it to the Dock (drag from Applications to Dock)
-3. Mention they can launch it via Spotlight (Cmd+Space, type "Insomnia")
 
 ### Step 4: Create Configuration Files
 
@@ -140,32 +144,73 @@ After the script completes:
    - Replace `{{INSTALL_DIR}}` with the installation directory
 
 ### Step 5: Verify Bot Token
-Run a quick verification:
 ```bash
-curl -s "https://api.telegram.org/bot<TOKEN>/getMe" | grep -q '"ok":true' && echo "✅ Bot token verified!" || echo "❌ Invalid token"
+curl -s "https://api.telegram.org/bot<TOKEN>/getMe" | grep -q '"ok":true' && echo "Bot token verified!" || echo "Invalid token"
 ```
 
-### Step 6: Offer to Start Services
-Ask if they want to start the services now:
-1. Start the bridge: `cd {{INSTALL_DIR}}/bridge && npm start`
-2. Start the dashboard: `cd {{INSTALL_DIR}}/bridge/dashboard && npm run dev`
-3. Open dashboard in browser: `open http://localhost:3333`
-4. Open Telegram Desktop (if installed): `open -a Telegram` or guide them to open Telegram on their device
+### Step 6: Start Services and Open Dashboard
+Start both services and open the dashboard in browser:
+```bash
+cd {{INSTALL_DIR}}/bridge && npm start &
+sleep 2
+cd {{INSTALL_DIR}}/bridge/dashboard && npm run dev &
+sleep 3
+open http://localhost:3333
+```
+
+---
+
+# PHASE 3: Final Instructions
+
+After everything is running, give them these EXACT instructions for messaging their bot:
+
+## How to Message Your Bot
+
+**Step 1: Find your bot in Telegram**
+- Open Telegram
+- Tap the search icon at the top
+- Type exactly: `@[their_bot_username]` (the username they created earlier)
+- Tap on the bot in the search results
+
+**Step 2: Start the chat**
+- Tap the "Start" button at the bottom of the chat
+- This activates the bot so it can receive your messages
+
+**Step 3: Pin the chat (so you don't lose it)**
+- On mobile: Long-press on the chat in your chat list, then tap "Pin"
+- On desktop: Right-click on the chat, then click "Pin"
+
+**Step 4: Send a test message**
+- Type "hello" and send it
+- You should see a response within a few seconds
+- Check the dashboard at http://localhost:3333 to see the activity
 
 ---
 
 ## Final Summary
-When complete, provide a summary:
-- What was configured
-- The bot username (from the token verification)
-- How to start/stop the services manually
-- How to message the bot: "Search for @<bot_username> on Telegram and send it a message!"
+
+When complete, tell them:
+
+```
+Setup Complete!
+---------------
+Your bot is ready: @[bot_username]
+
+Dashboard: http://localhost:3333 (should be open in your browser)
+
+To start Insomnia in the future:
+  cd {{INSTALL_DIR}} && ./start.sh
+
+To stop everything:
+  pkill -f "telegram-server" && pkill -f "next-server"
+```
 
 ---
 
 ## Key Rules
 1. **NEVER run commands during Phase 1** - only ask questions
 2. **ALWAYS show the configuration summary** before proceeding
-3. **ALWAYS get explicit confirmation** before Phase 2
-4. Be concise - don't over-explain each step
-5. If something fails during Phase 2, explain what went wrong and offer solutions
+3. **ALWAYS get explicit "yes" confirmation** before Phase 2
+4. **Be extremely explicit** with Telegram instructions - assume user has never used it
+5. **ALWAYS open the dashboard** in browser at the end
+6. If something fails during Phase 2, explain what went wrong and offer solutions

@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import * as fs from 'fs';
 import * as path from 'path';
 import { authenticateRequest, authenticateReadRequest } from '../../../lib/auth';
+import { BRIDGE_DIR } from '../../../lib/paths';
 
-const BRIDGE_DIR = process.env.BRIDGE_DIR || path.join(process.env.HOME || '', 'Documents', 'insomnia', 'bridge');
 const BRIEFINGS_PATH = path.join(BRIDGE_DIR, '.nightly-briefings.json');
 
 interface NightlyBriefing {

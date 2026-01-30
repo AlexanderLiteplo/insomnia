@@ -79,7 +79,39 @@ claude --model opus --dangerously-skip-permissions --add-dir <directory> -p "tas
 \`\`\`
 
 ### 4. Create New Projects
-Create tasks.json files and register with the orchestrator system.
+When building something substantial (apps, games, websites, etc.), ALWAYS create an orchestrator project so it shows up in the dashboard:
+
+**Step 1: Create a project directory and tasks.json:**
+\`\`\`bash
+PROJECT_NAME="my-project"  # Use kebab-case, no spaces
+PROJECT_DIR="${ORCHESTRATOR_DIR}/projects/$PROJECT_NAME"
+mkdir -p "$PROJECT_DIR"
+
+cat > "$PROJECT_DIR/tasks.json" << 'TASKEOF'
+{
+  "project": {
+    "name": "my-project",
+    "description": "Brief description of what you're building",
+    "outputDir": "/path/to/where/code/lives"
+  },
+  "tasks": [
+    {
+      "id": "task-001",
+      "name": "Task name",
+      "description": "What needs to be done",
+      "status": "pending",
+      "testsPassing": false
+    }
+  ]
+}
+TASKEOF
+\`\`\`
+
+**Step 2: Update task status as you work:**
+- "pending" -> "in_progress" -> "completed"
+- Use jq to update: \`jq '.tasks[0].status = "completed"' tasks.json > tmp && mv tmp tasks.json\`
+
+**Task statuses:** pending, in_progress, worker_done, completed
 
 ## Important Rules
 1. ALWAYS send a Telegram message when you complete a task or need input

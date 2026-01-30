@@ -3,12 +3,7 @@ import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { authenticateReadRequest } from '../../lib/auth';
-
-const BRIDGE_DIR = process.env.BRIDGE_DIR || path.join(process.env.HOME || '', 'Documents', 'insomnia', 'bridge');
-const MANAGER_REGISTRY = path.join(BRIDGE_DIR, '.manager-registry.json');
-const ORCHESTRATOR_DIR = process.env.ORCHESTRATOR_DIR || path.join(BRIDGE_DIR, '..', 'orchestrator');
-const PROJECTS_DIR = path.join(ORCHESTRATOR_DIR, 'projects');
-const CONFIG_PATH = path.join(BRIDGE_DIR, 'config.json');
+import { BRIDGE_DIR, MANAGER_REGISTRY, ORCHESTRATOR_DIR, PROJECTS_DIR, CONFIG_PATH } from '../../lib/paths';
 
 interface TelegramBridgeStatus {
   running: boolean;
@@ -389,7 +384,30 @@ function getProjects(): Project[] {
     seenNames.add(legacyProject.name);
   }
 
-  // 2. Scan projects directory for multi-project mode
+  // 2. Check projects.json registry (used by projects.sh script)
+  const projectsRegistry = path.join(ORCHESTRATOR_DIR, 'projects.json');
+  if (fs.existsSync(projectsRegistry)) {
+    try {
+      const registry = JSON.parse(fs.readFileSync(projectsRegistry, 'utf8'));
+      if (registry.projects && Array.isArray(registry.projects)) {
+        for (const entry of registry.projects) {
+          if (entry.tasksFile && entry.name) {
+            // Expand ~ in path
+            const tasksFile = entry.tasksFile.replace(/^~/, process.env.HOME || '');
+            const project = parseTasksFile(tasksFile, entry.name);
+            if (project && !seenNames.has(project.name)) {
+              projects.push(project);
+              seenNames.add(project.name);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error reading projects registry:', err);
+    }
+  }
+
+  // 3. Scan projects directory for multi-project mode
   if (fs.existsSync(PROJECTS_DIR)) {
     const projectDirs = fs.readdirSync(PROJECTS_DIR).filter(d => {
       const fullPath = path.join(PROJECTS_DIR, d);

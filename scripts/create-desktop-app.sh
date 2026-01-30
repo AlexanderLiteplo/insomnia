@@ -8,14 +8,10 @@
 set -e
 
 # Colors
-RED='\033[0;31m'
 GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-CYAN='\033[0;36m'
-NEON_GREEN='\033[38;5;46m'
-NEON_PINK='\033[38;5;198m'
 NC='\033[0m'
 BOLD='\033[1m'
+DIM='\033[2m'
 
 # Paths
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -24,29 +20,29 @@ APP_NAME="Insomnia"
 APP_DIR="/Applications/${APP_NAME}.app"
 
 echo
-echo -e "${NEON_GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${GREEN}────────────────────────────────────────────────────────────────────────────${NC}"
 echo -e "${BOLD}  Creating ${APP_NAME} Desktop Application${NC}"
-echo -e "${NEON_GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${GREEN}────────────────────────────────────────────────────────────────────────────${NC}"
 echo
 
 # Check if app already exists
 if [[ -d "$APP_DIR" ]]; then
-    echo -e "${YELLOW}Warning: ${APP_DIR} already exists.${NC}"
+    echo -e "${DIM}Warning: ${APP_DIR} already exists.${NC}"
     read -p "Do you want to replace it? (y/n): " replace
     if [[ "$replace" != "y" && "$replace" != "Y" ]]; then
-        echo -e "${RED}Aborted.${NC}"
+        echo "Aborted."
         exit 1
     fi
     rm -rf "$APP_DIR"
 fi
 
 # Create app bundle structure
-echo -e "${CYAN}Creating app bundle structure...${NC}"
+echo -e "${DIM}Creating app bundle structure...${NC}"
 mkdir -p "$APP_DIR/Contents/MacOS"
 mkdir -p "$APP_DIR/Contents/Resources"
 
 # Create Info.plist
-echo -e "${CYAN}Creating Info.plist...${NC}"
+echo -e "${DIM}Creating Info.plist...${NC}"
 cat > "$APP_DIR/Contents/Info.plist" << 'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -79,12 +75,12 @@ cat > "$APP_DIR/Contents/Info.plist" << 'PLIST'
 PLIST
 
 # Create the launcher script
-echo -e "${CYAN}Creating launcher script...${NC}"
+echo -e "${DIM}Creating launcher script...${NC}"
 cat > "$APP_DIR/Contents/MacOS/Insomnia" << LAUNCHER
 #!/bin/bash
 
 # Insomnia Desktop App Launcher
-# This script launches the Insomnia UI
+# This script launches Insomnia and opens the dashboard
 
 INSOMNIA_DIR="$INSOMNIA_DIR"
 LOG_FILE="\$INSOMNIA_DIR/bridge/app-launcher.log"
@@ -109,6 +105,10 @@ if [[ -x "\$INSOMNIA_DIR/start.sh" ]]; then
 APPLESCRIPT
 
     log "Terminal launched with start.sh"
+
+    # Wait for services to start, then open dashboard
+    (sleep 5 && open "http://localhost:3333") &
+    log "Dashboard will open in browser"
 else
     log "ERROR: start.sh not found at \$INSOMNIA_DIR/start.sh"
     osascript -e 'display alert "Insomnia Error" message "Could not find start.sh. Please ensure Insomnia is properly installed."'
@@ -118,7 +118,7 @@ LAUNCHER
 chmod +x "$APP_DIR/Contents/MacOS/Insomnia"
 
 # Create the app icon (a simple placeholder - user can replace with custom icon)
-echo -e "${CYAN}Creating app icon...${NC}"
+echo -e "${DIM}Creating app icon...${NC}"
 
 # Create iconset directory
 ICONSET_DIR="$INSOMNIA_DIR/scripts/AppIcon.iconset"
@@ -192,15 +192,15 @@ PYTHON_SCRIPT
 
 # Check if iconset was created and convert to icns
 if [[ -d "$ICONSET_DIR" ]] && [[ -n "$(ls -A "$ICONSET_DIR" 2>/dev/null)" ]]; then
-    echo -e "${CYAN}Converting to .icns format...${NC}"
+    echo -e "${DIM}Converting to .icns format...${NC}"
     iconutil -c icns "$ICONSET_DIR" -o "$APP_DIR/Contents/Resources/AppIcon.icns" 2>/dev/null || true
     rm -rf "$ICONSET_DIR"
 else
-    echo -e "${YELLOW}Note: Could not create custom icon (PIL not installed). Using system default.${NC}"
+    echo -e "${DIM}Note: Could not create custom icon (PIL not installed). Using system default.${NC}"
 fi
 
 # Register the app with Launch Services
-echo -e "${CYAN}Registering app with macOS...${NC}"
+echo -e "${DIM}Registering app with macOS...${NC}"
 /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$APP_DIR" 2>/dev/null || true
 
 # Touch the app to update Finder
@@ -211,12 +211,12 @@ echo -e "${GREEN}Success! ${APP_NAME}.app has been created.${NC}"
 echo
 echo -e "${BOLD}Location:${NC} ${APP_DIR}"
 echo
-echo -e "${CYAN}You can now:${NC}"
+echo -e "${DIM}You can now:${NC}"
 echo -e "  1. Find it in Finder under Applications"
 echo -e "  2. Drag it to your Dock to pin it"
 echo -e "  3. Use Spotlight (Cmd+Space) and type '${APP_NAME}' to launch"
 echo
-echo -e "${NEON_GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${GREEN}────────────────────────────────────────────────────────────────────────────${NC}"
 
 # Offer to open Applications folder
 read -p "Would you like to open the Applications folder now? (y/n): " open_apps

@@ -116,6 +116,11 @@ export default function Dashboard() {
   const [selectedTask, setSelectedTask] = useState<SelectedTask>(null);
   const [isHealing, setIsHealing] = useState(false);
   const [healStatus, setHealStatus] = useState<string | null>(null);
+  const [showAddProject, setShowAddProject] = useState(false);
+  const [addProjectName, setAddProjectName] = useState('');
+  const [addProjectPath, setAddProjectPath] = useState('');
+  const [addProjectError, setAddProjectError] = useState<string | null>(null);
+  const [addingProject, setAddingProject] = useState(false);
 
   const fetchStatus = async () => {
     try {
@@ -203,6 +208,46 @@ export default function Dashboard() {
       setTimeout(() => setHealStatus(null), 5000);
     } finally {
       setIsHealing(false);
+    }
+  };
+
+  const addProject = async () => {
+    if (!addProjectName.trim()) {
+      setAddProjectError('Project name is required');
+      return;
+    }
+
+    setAddingProject(true);
+    setAddProjectError(null);
+
+    try {
+      const body: { name: string; tasksFile?: string } = { name: addProjectName.trim() };
+      if (addProjectPath.trim()) {
+        body.tasksFile = addProjectPath.trim();
+      }
+
+      const res = await secureFetch('/api/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setAddProjectError(data.message || 'Failed to add project');
+        return;
+      }
+
+      // Success - close modal and refresh
+      setShowAddProject(false);
+      setAddProjectName('');
+      setAddProjectPath('');
+      fetchStatus();
+    } catch (err) {
+      setAddProjectError('Failed to add project');
+    } finally {
+      setAddingProject(false);
     }
   };
 
@@ -838,9 +883,20 @@ export default function Dashboard() {
                 </span>
               )}
             </div>
-            {expandedSection === 'projects' && (
-              <span className="text-[9px] text-gray-500">Click to collapse</span>
-            )}
+            <div className="flex items-center gap-2">
+              {expandedSection === 'projects' && (
+                <span className="text-[9px] text-gray-500">Click to collapse</span>
+              )}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowAddProject(true);
+                }}
+                className="text-[10px] px-2 py-1 rounded bg-[var(--neon-green)]/10 text-[var(--neon-green)] hover:bg-[var(--neon-green)]/20 transition-colors"
+              >
+                + Add
+              </button>
+            </div>
           </div>
           <div className="flex-1 overflow-y-auto p-2">
             {status && status.projects.length === 0 ? (
@@ -1101,6 +1157,80 @@ export default function Dashboard() {
           }}
         />
       )}
+
+      {/* Add Project Modal */}
+      <AnimatePresence>
+        {showAddProject && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowAddProject(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-[var(--card)] border border-[var(--card-border)] rounded-lg p-6 w-full max-w-md mx-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-lg font-semibold text-white mb-4">Add Project</h3>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1">Project Name *</label>
+                  <input
+                    type="text"
+                    value={addProjectName}
+                    onChange={(e) => setAddProjectName(e.target.value)}
+                    placeholder="my-awesome-project"
+                    className="w-full px-3 py-2 bg-[var(--background)] border border-[var(--card-border)] rounded text-white text-sm focus:outline-none focus:border-[var(--neon-green)]"
+                  />
+                  <p className="text-[10px] text-gray-500 mt-1">Will be converted to kebab-case</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1">Tasks File Path (optional)</label>
+                  <input
+                    type="text"
+                    value={addProjectPath}
+                    onChange={(e) => setAddProjectPath(e.target.value)}
+                    placeholder="~/path/to/tasks.json"
+                    className="w-full px-3 py-2 bg-[var(--background)] border border-[var(--card-border)] rounded text-white text-sm focus:outline-none focus:border-[var(--neon-green)]"
+                  />
+                  <p className="text-[10px] text-gray-500 mt-1">Leave empty to create a new project</p>
+                </div>
+
+                {addProjectError && (
+                  <p className="text-red-400 text-sm">{addProjectError}</p>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  onClick={() => {
+                    setShowAddProject(false);
+                    setAddProjectName('');
+                    setAddProjectPath('');
+                    setAddProjectError(null);
+                  }}
+                  className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={addProject}
+                  disabled={addingProject}
+                  className="px-4 py-2 text-sm bg-[var(--neon-green)] text-black rounded hover:bg-[var(--neon-green)]/90 transition-colors disabled:opacity-50"
+                >
+                  {addingProject ? 'Adding...' : 'Add Project'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Note: NightlyBuilds modal has its own backdrop handling */}
     </div>

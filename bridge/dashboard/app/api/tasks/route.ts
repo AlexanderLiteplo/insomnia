@@ -2,9 +2,9 @@ import { NextResponse } from 'next/server';
 import * as fs from 'fs';
 import * as path from 'path';
 import { authenticateRequest, authenticateReadRequest } from '../../lib/auth';
+import { BRIDGE_DIR, HUMAN_TASKS_FILE } from '../../lib/paths';
 
-const BRIDGE_DIR = path.join(process.env.HOME || '', 'Documents', 'insomnia', 'bridge');
-const TASKS_FILE = path.join(BRIDGE_DIR, '.human-tasks.json');
+const TASKS_FILE = HUMAN_TASKS_FILE;
 
 interface HumanTask {
   id: string;

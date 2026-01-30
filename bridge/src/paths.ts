@@ -9,9 +9,11 @@ import * as os from 'os';
 import { log } from './logger';
 
 // Core directory paths
+// Use __dirname to find paths relative to where code runs (works regardless of where repo is cloned)
 export const HOME_DIR = process.env.HOME || os.homedir();
-export const AUTOMATION_SYSTEM_DIR = process.env.AUTOMATION_SYSTEM_DIR || path.join(HOME_DIR, 'Documents', 'insomnia');
-export const BRIDGE_DIR = path.join(AUTOMATION_SYSTEM_DIR, 'bridge');
+// __dirname is bridge/dist when compiled, so go up two levels to get insomnia root
+export const BRIDGE_DIR = process.env.BRIDGE_DIR || path.resolve(__dirname, '..');
+export const AUTOMATION_SYSTEM_DIR = process.env.AUTOMATION_SYSTEM_DIR || path.resolve(BRIDGE_DIR, '..');
 export const ORCHESTRATOR_DIR = process.env.ORCHESTRATOR_DIR || path.join(AUTOMATION_SYSTEM_DIR, 'orchestrator');
 
 // Derived paths

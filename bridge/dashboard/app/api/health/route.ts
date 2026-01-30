@@ -2,9 +2,7 @@ import { NextResponse } from 'next/server';
 import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
-
-const BRIDGE_DIR = process.env.BRIDGE_DIR || path.join(process.env.HOME || '', 'Documents', 'insomnia', 'bridge');
-const ORCHESTRATOR_DIR = process.env.ORCHESTRATOR_DIR || path.join(BRIDGE_DIR, '..', 'orchestrator');
+import { BRIDGE_DIR, ORCHESTRATOR_DIR } from '../../lib/paths';
 
 interface HealthStatus {
   status: 'healthy' | 'degraded' | 'unhealthy';

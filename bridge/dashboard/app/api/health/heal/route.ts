@@ -3,8 +3,8 @@ import { spawn } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { authenticateRequest } from '../../../lib/auth';
+import { BRIDGE_DIR } from '../../../lib/paths';
 
-const BRIDGE_DIR = process.env.BRIDGE_DIR || path.join(process.env.HOME || '', 'Documents', 'insomnia', 'bridge');
 const HEAL_LOG_DIR = path.join(BRIDGE_DIR, 'heal-sessions');
 
 interface HealthCheck {
