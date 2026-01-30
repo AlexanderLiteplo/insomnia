@@ -326,9 +326,14 @@ export function spawnBackgroundHealthMonitor(): void {
 
   log('🔄 Spawning background health monitor...');
 
-  const prompt = `You are a background health monitor for the Claude Automation System.
+  const prompt = `You are a background health monitor for Insomnia - the autonomous AI agent system.
+
+## CRITICAL: Scope Restriction
+You must ONLY work within the Insomnia project directory: ~/Documents/insomnia
+DO NOT access ~/claude-automation-system/ or any archived directories.
+
 Your job is to:
-1. Check that all required directories exist in ~/claude-automation-system/
+1. Check that all required directories exist in ~/Documents/insomnia/
 2. Validate the manager registry for any "undefined" or invalid managers
 3. Clean up stale processes and PID files
 4. Report any issues found

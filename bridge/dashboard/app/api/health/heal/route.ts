@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { authenticateRequest } from '../../../lib/auth';
 
-const BRIDGE_DIR = process.env.BRIDGE_DIR || path.join(process.env.HOME || '', 'claude-automation-system', 'bridge');
+const BRIDGE_DIR = process.env.BRIDGE_DIR || path.join(process.env.HOME || '', 'Documents', 'insomnia', 'bridge');
 const HEAL_LOG_DIR = path.join(BRIDGE_DIR, 'heal-sessions');
 
 interface HealthCheck {
@@ -40,7 +40,21 @@ function generateHealPrompt(health: HealthStatus): string {
     issues.push(`- Orchestrator Manager: ${health.checks.orchestratorManager.message} (status: ${health.checks.orchestratorManager.status})`);
   }
 
+  const INSOMNIA_ROOT = path.join(BRIDGE_DIR, '..');
+
   return `You are a system healer agent for Insomnia - the autonomous AI agent system that never sleeps.
+
+## CRITICAL: Scope Restriction
+**You must ONLY work within the Insomnia project directory: ${INSOMNIA_ROOT}**
+
+- DO NOT modify, read, or access any files outside of ${INSOMNIA_ROOT}
+- DO NOT access ~/claude-automation-system/ or any archived directories
+- The ONLY valid working directories are:
+  - ${INSOMNIA_ROOT} (project root)
+  - ${BRIDGE_DIR} (bridge)
+  - ${path.join(BRIDGE_DIR, 'dashboard')} (dashboard)
+  - ${path.join(INSOMNIA_ROOT, 'orchestrator')} (orchestrator)
+- If you find paths pointing elsewhere, they are STALE and should be updated to point to insomnia
 
 ## About Insomnia
 

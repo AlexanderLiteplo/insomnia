@@ -10,7 +10,7 @@ import { log } from './logger';
 
 // Core directory paths
 export const HOME_DIR = process.env.HOME || os.homedir();
-export const AUTOMATION_SYSTEM_DIR = process.env.AUTOMATION_SYSTEM_DIR || path.join(HOME_DIR, 'claude-automation-system');
+export const AUTOMATION_SYSTEM_DIR = process.env.AUTOMATION_SYSTEM_DIR || path.join(HOME_DIR, 'Documents', 'insomnia');
 export const BRIDGE_DIR = path.join(AUTOMATION_SYSTEM_DIR, 'bridge');
 export const ORCHESTRATOR_DIR = process.env.ORCHESTRATOR_DIR || path.join(AUTOMATION_SYSTEM_DIR, 'orchestrator');
 
