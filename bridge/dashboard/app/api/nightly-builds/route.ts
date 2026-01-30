@@ -20,6 +20,24 @@ const DEFAULT_CONFIG = {
   customPrompt: 'Look for friction points in my projects, scrape useful data, optimize existing code, clean up old files, or build small improvements. Focus on Insomnia and other active projects.',
   lastRun: null as string | null,
   nextRun: null as string | null,
+  // Earnings extraction feature
+  earningsExtraction: {
+    enabled: false,
+    sources: ['stripe'],
+    customSourcePath: undefined,
+  },
+  // Priority tasks feature
+  priorityTasks: {
+    enabled: false,
+    maxTasks: 4,
+    sources: ['orchestrator', 'human-tasks'] as ('orchestrator' | 'human-tasks' | 'github-issues')[],
+  },
+  // Manager distribution feature
+  managerDistribution: {
+    enabled: false,
+    maxManagersToSpawn: 4,
+    taskAssignmentStrategy: 'priority-based' as 'round-robin' | 'priority-based' | 'skill-match',
+  },
 };
 
 interface NightlyBuildConfig {
@@ -30,6 +48,21 @@ interface NightlyBuildConfig {
   customPrompt: string;
   lastRun?: string | null;
   nextRun?: string | null;
+  earningsExtraction: {
+    enabled: boolean;
+    sources: string[];
+    customSourcePath?: string;
+  };
+  priorityTasks: {
+    enabled: boolean;
+    maxTasks: number;
+    sources: ('orchestrator' | 'human-tasks' | 'github-issues')[];
+  };
+  managerDistribution: {
+    enabled: boolean;
+    maxManagersToSpawn: number;
+    taskAssignmentStrategy: 'round-robin' | 'priority-based' | 'skill-match';
+  };
 }
 
 interface NightlyBriefing {
@@ -151,7 +184,7 @@ export async function PATCH(request: Request) {
     const body = await request.json();
 
     // Validate allowed fields
-    const allowedFields = ['enabled', 'buildTime', 'wakeUpTime', 'model', 'customPrompt'];
+    const allowedFields = ['enabled', 'buildTime', 'wakeUpTime', 'model', 'customPrompt', 'earningsExtraction', 'priorityTasks', 'managerDistribution'];
     for (const key of Object.keys(body)) {
       if (!allowedFields.includes(key)) {
         return NextResponse.json(
@@ -191,14 +224,80 @@ export async function POST(request: Request) {
 
     // Spawn the nightly build agent
     const { spawn } = await import('child_process');
+
+    // Build the feature-specific prompts
+    let featurePrompts = '';
+
+    if (config.earningsExtraction.enabled) {
+      featurePrompts += `
+## EARNINGS EXTRACTION
+Extract earnings data from the following sources: ${config.earningsExtraction.sources.join(', ')}
+${config.earningsExtraction.customSourcePath ? `Custom source path: ${config.earningsExtraction.customSourcePath}` : ''}
+
+Steps:
+1. For Stripe: Use the Stripe CLI or API to fetch yesterday's transactions (stripe payments list --created.gte=<yesterday> --created.lt=<today>)
+2. For Gumroad: Check ~/Documents or common locations for Gumroad export data
+3. For custom sources: Read from the specified path
+4. Aggregate total earnings, count transactions, and break down by source
+
+Include in briefing:
+- Total earnings for the day
+- Breakdown by source
+- Number of transactions
+`;
+    }
+
+    if (config.priorityTasks.enabled) {
+      featurePrompts += `
+## PRIORITY TASKS FETCHING
+Fetch top ${config.priorityTasks.maxTasks} priority tasks from: ${config.priorityTasks.sources.join(', ')}
+
+Steps:
+1. For orchestrator: Read ~/claude-automation-system/orchestrator/prds/tasks.json - find tasks with status "pending" or "in_progress", prioritize by phase
+2. For human-tasks: Read ~/claude-automation-system/bridge/.human-tasks.json - filter by status="pending", sort by priority (urgent > high > medium > low)
+3. For github-issues: Use 'gh issue list --state open --limit 10' to fetch open issues, prioritize by labels
+
+Collect the top ${config.priorityTasks.maxTasks} highest priority tasks across all sources.
+Include task ID, title, description, source, and priority level.
+`;
+    }
+
+    if (config.managerDistribution.enabled) {
+      featurePrompts += `
+## MANAGER DISTRIBUTION
+After fetching priority tasks, distribute them across managers using the ${config.managerDistribution.taskAssignmentStrategy} strategy.
+Maximum managers to spawn: ${config.managerDistribution.maxManagersToSpawn}
+
+Steps:
+1. Read the manager registry from ~/claude-automation-system/bridge/.manager-registry.json
+2. Match tasks to existing managers based on topics/skills, or create new managers for unmatched tasks
+3. For each task assignment, spawn a new Claude agent as a manager:
+
+   claude --model ${config.model} --dangerously-skip-permissions -p "You are manager '<manager-name>' handling task: <task-description>"
+
+4. Track which manager received which task
+
+Assignment strategies:
+- round-robin: Distribute tasks evenly across managers
+- priority-based: Assign highest priority tasks first to most capable managers
+- skill-match: Match task topics to manager expertise areas
+
+Include in briefing which managers were spawned and what tasks they received.
+`;
+    }
+
     const buildPrompt = `You are running a nightly build for Insomnia. Current time: ${new Date().toISOString()}
 
 ${config.customPrompt}
+${featurePrompts}
 
 IMPORTANT: When you're done, create a briefing summary with:
 1. A TLDR section (1-2 sentences max)
 2. A detailed summary of what was done
 3. A list of all changes made
+4. ${config.earningsExtraction.enabled ? 'Earnings data for the day' : ''}
+5. ${config.priorityTasks.enabled ? 'List of priority tasks fetched' : ''}
+6. ${config.managerDistribution.enabled ? 'Managers spawned and tasks assigned' : ''}
 
 Save the briefing to: ${BRIEFINGS_PATH}
 
@@ -213,14 +312,39 @@ The briefing should be JSON in this format:
   "summary": "<detailed summary>",
   "changes": [
     {
-      "type": "improvement|fix|optimization|cleanup|scrape|new_tool",
+      "type": "improvement|fix|optimization|cleanup|scrape|new_tool|earnings|task_distribution",
       "title": "<short title>",
       "description": "<what was done>",
       "filesChanged": ["<file paths>"],
       "project": "<project name if applicable>"
     }
   ],
-  "status": "success|partial|failed"
+  "status": "success|partial|failed",
+  ${config.earningsExtraction.enabled ? `"earnings": {
+    "date": "<YYYY-MM-DD>",
+    "total": <number>,
+    "currency": "USD",
+    "breakdown": [
+      { "source": "<source>", "amount": <number>, "transactions": <number> }
+    ]
+  },` : ''}
+  ${config.priorityTasks.enabled ? `"priorityTasks": [
+    {
+      "id": "<task-id>",
+      "title": "<task-title>",
+      "description": "<task-description>",
+      "source": "orchestrator|human-tasks|github-issues",
+      "priority": "low|medium|high|urgent",
+      "project": "<project-name>"
+    }
+  ],` : ''}
+  ${config.managerDistribution.enabled ? `"managersSpawned": [
+    {
+      "managerId": "<manager-id>",
+      "managerName": "<manager-name>",
+      "assignedTask": "<task-title>"
+    }
+  ],` : ''}
 }
 
 Be thorough but efficient. Focus on high-value improvements.`;

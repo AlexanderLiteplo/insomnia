@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { NightlyBuildConfig, NightlyBriefing } from '../lib/types';
+import type { NightlyBuildConfig, NightlyBriefingExtended } from '../lib/types';
 import { Tooltip, TooltipContent } from './ui/Tooltip';
 
 type ClaudeModel = 'sonnet' | 'haiku' | 'opus';
@@ -38,6 +38,8 @@ const CHANGE_TYPE_ICONS: Record<string, string> = {
   cleanup: '🧹',
   scrape: '📊',
   new_tool: '🛠️',
+  earnings: '💰',
+  task_distribution: '📋',
 };
 
 const CHANGE_TYPE_COLORS: Record<string, string> = {
@@ -47,7 +49,13 @@ const CHANGE_TYPE_COLORS: Record<string, string> = {
   cleanup: 'text-gray-400 bg-gray-800/50 border-gray-700',
   scrape: 'text-purple-400 bg-purple-900/30 border-purple-800',
   new_tool: 'text-pink-400 bg-pink-900/30 border-pink-800',
+  earnings: 'text-emerald-400 bg-emerald-900/30 border-emerald-800',
+  task_distribution: 'text-cyan-400 bg-cyan-900/30 border-cyan-800',
 };
+
+const EARNINGS_SOURCES = ['stripe', 'gumroad', 'custom'] as const;
+const TASK_SOURCES = ['orchestrator', 'human-tasks', 'github-issues'] as const;
+const ASSIGNMENT_STRATEGIES = ['round-robin', 'priority-based', 'skill-match'] as const;
 
 function TimeInput({ value, onChange, label }: { value: string; onChange: (v: string) => void; label: string }) {
   const [hours, minutes] = value.split(':');
@@ -115,14 +123,14 @@ function formatTime12h(time24: string): string {
 
 export function NightlyBuilds({ isOpen, onClose, getCsrfToken }: NightlyBuildsProps) {
   const [config, setConfig] = useState<NightlyBuildConfig | null>(null);
-  const [briefings, setBriefings] = useState<NightlyBriefing[]>([]);
+  const [briefings, setBriefings] = useState<NightlyBriefingExtended[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [activeTab, setActiveTab] = useState<'config' | 'briefings'>('config');
-  const [selectedBriefing, setSelectedBriefing] = useState<NightlyBriefing | null>(null);
+  const [selectedBriefing, setSelectedBriefing] = useState<NightlyBriefingExtended | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -381,6 +389,236 @@ export function NightlyBuilds({ isOpen, onClose, getCsrfToken }: NightlyBuildsPr
                   </p>
                 </div>
 
+                {/* Divider */}
+                <div className="border-t border-gray-700 my-4" />
+                <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Automation Features</h4>
+
+                {/* Earnings Extraction */}
+                <div className="p-3 bg-emerald-900/10 rounded-lg border border-emerald-900/30">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">💰</span>
+                      <div>
+                        <span className="text-sm font-medium text-white">Earnings Extraction</span>
+                        <p className="text-[10px] text-gray-500">Extract daily earnings from payment sources</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleConfigChange('earningsExtraction', {
+                        ...config.earningsExtraction,
+                        enabled: !config.earningsExtraction.enabled
+                      })}
+                      className={`relative w-10 h-5 rounded-full transition-colors ${
+                        config.earningsExtraction.enabled ? 'bg-emerald-600' : 'bg-gray-700'
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                          config.earningsExtraction.enabled ? 'left-5' : 'left-0.5'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                  {config.earningsExtraction.enabled && (
+                    <div className="mt-3 space-y-2">
+                      <label className="text-[10px] text-gray-400">Sources</label>
+                      <div className="flex flex-wrap gap-1">
+                        {EARNINGS_SOURCES.map((source) => (
+                          <button
+                            key={source}
+                            onClick={() => {
+                              const sources = config.earningsExtraction.sources.includes(source)
+                                ? config.earningsExtraction.sources.filter(s => s !== source)
+                                : [...config.earningsExtraction.sources, source];
+                              handleConfigChange('earningsExtraction', {
+                                ...config.earningsExtraction,
+                                sources
+                              });
+                            }}
+                            className={`px-2 py-1 text-[10px] rounded transition-all ${
+                              config.earningsExtraction.sources.includes(source)
+                                ? 'bg-emerald-800 text-emerald-200 border border-emerald-700'
+                                : 'bg-gray-800 text-gray-500 hover:text-gray-400'
+                            }`}
+                          >
+                            {source}
+                          </button>
+                        ))}
+                      </div>
+                      {config.earningsExtraction.sources.includes('custom') && (
+                        <input
+                          type="text"
+                          value={config.earningsExtraction.customSourcePath || ''}
+                          onChange={(e) => handleConfigChange('earningsExtraction', {
+                            ...config.earningsExtraction,
+                            customSourcePath: e.target.value
+                          })}
+                          placeholder="Path to custom earnings data..."
+                          className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-[10px] text-white"
+                        />
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Priority Tasks */}
+                <div className="p-3 bg-cyan-900/10 rounded-lg border border-cyan-900/30">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">📋</span>
+                      <div>
+                        <span className="text-sm font-medium text-white">Priority Tasks</span>
+                        <p className="text-[10px] text-gray-500">Fetch top priority tasks from various sources</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleConfigChange('priorityTasks', {
+                        ...config.priorityTasks,
+                        enabled: !config.priorityTasks.enabled
+                      })}
+                      className={`relative w-10 h-5 rounded-full transition-colors ${
+                        config.priorityTasks.enabled ? 'bg-cyan-600' : 'bg-gray-700'
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                          config.priorityTasks.enabled ? 'left-5' : 'left-0.5'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                  {config.priorityTasks.enabled && (
+                    <div className="mt-3 space-y-3">
+                      <div>
+                        <label className="text-[10px] text-gray-400">Max Tasks to Fetch</label>
+                        <div className="flex gap-1 mt-1">
+                          {[2, 4, 6, 8].map((n) => (
+                            <button
+                              key={n}
+                              onClick={() => handleConfigChange('priorityTasks', {
+                                ...config.priorityTasks,
+                                maxTasks: n
+                              })}
+                              className={`px-3 py-1 text-[10px] rounded transition-all ${
+                                config.priorityTasks.maxTasks === n
+                                  ? 'bg-cyan-800 text-cyan-200 border border-cyan-700'
+                                  : 'bg-gray-800 text-gray-500 hover:text-gray-400'
+                              }`}
+                            >
+                              {n}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-gray-400">Sources</label>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {TASK_SOURCES.map((source) => (
+                            <button
+                              key={source}
+                              onClick={() => {
+                                const sources = config.priorityTasks.sources.includes(source)
+                                  ? config.priorityTasks.sources.filter(s => s !== source)
+                                  : [...config.priorityTasks.sources, source];
+                                handleConfigChange('priorityTasks', {
+                                  ...config.priorityTasks,
+                                  sources: sources as ('orchestrator' | 'human-tasks' | 'github-issues')[]
+                                });
+                              }}
+                              className={`px-2 py-1 text-[10px] rounded transition-all ${
+                                config.priorityTasks.sources.includes(source)
+                                  ? 'bg-cyan-800 text-cyan-200 border border-cyan-700'
+                                  : 'bg-gray-800 text-gray-500 hover:text-gray-400'
+                              }`}
+                            >
+                              {source}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Manager Distribution */}
+                <div className="p-3 bg-purple-900/10 rounded-lg border border-purple-900/30">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">🤖</span>
+                      <div>
+                        <span className="text-sm font-medium text-white">Manager Distribution</span>
+                        <p className="text-[10px] text-gray-500">Auto-distribute tasks across AI managers</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleConfigChange('managerDistribution', {
+                        ...config.managerDistribution,
+                        enabled: !config.managerDistribution.enabled
+                      })}
+                      className={`relative w-10 h-5 rounded-full transition-colors ${
+                        config.managerDistribution.enabled ? 'bg-purple-600' : 'bg-gray-700'
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                          config.managerDistribution.enabled ? 'left-5' : 'left-0.5'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                  {config.managerDistribution.enabled && (
+                    <div className="mt-3 space-y-3">
+                      <div>
+                        <label className="text-[10px] text-gray-400">Max Managers to Spawn</label>
+                        <div className="flex gap-1 mt-1">
+                          {[2, 4, 6, 8].map((n) => (
+                            <button
+                              key={n}
+                              onClick={() => handleConfigChange('managerDistribution', {
+                                ...config.managerDistribution,
+                                maxManagersToSpawn: n
+                              })}
+                              className={`px-3 py-1 text-[10px] rounded transition-all ${
+                                config.managerDistribution.maxManagersToSpawn === n
+                                  ? 'bg-purple-800 text-purple-200 border border-purple-700'
+                                  : 'bg-gray-800 text-gray-500 hover:text-gray-400'
+                              }`}
+                            >
+                              {n}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-gray-400">Assignment Strategy</label>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {ASSIGNMENT_STRATEGIES.map((strategy) => (
+                            <button
+                              key={strategy}
+                              onClick={() => handleConfigChange('managerDistribution', {
+                                ...config.managerDistribution,
+                                taskAssignmentStrategy: strategy
+                              })}
+                              className={`px-2 py-1 text-[10px] rounded transition-all ${
+                                config.managerDistribution.taskAssignmentStrategy === strategy
+                                  ? 'bg-purple-800 text-purple-200 border border-purple-700'
+                                  : 'bg-gray-800 text-gray-500 hover:text-gray-400'
+                              }`}
+                            >
+                              {strategy}
+                            </button>
+                          ))}
+                        </div>
+                        <p className="text-[9px] text-gray-600 mt-1">
+                          {config.managerDistribution.taskAssignmentStrategy === 'round-robin' && 'Distribute tasks evenly across managers'}
+                          {config.managerDistribution.taskAssignmentStrategy === 'priority-based' && 'Assign highest priority tasks first'}
+                          {config.managerDistribution.taskAssignmentStrategy === 'skill-match' && 'Match task topics to manager expertise'}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* Last Run Info */}
                 {config.lastRun && (
                   <div className="text-xs text-gray-500 p-2 bg-gray-800/30 rounded">
@@ -469,6 +707,91 @@ export function NightlyBuilds({ isOpen, onClose, getCsrfToken }: NightlyBuildsPr
                     <p className="text-sm text-gray-300 whitespace-pre-wrap">{selectedBriefing.summary}</p>
                   </div>
 
+                  {/* Earnings Data */}
+                  {selectedBriefing.earnings && (
+                    <div className="p-3 bg-emerald-900/10 rounded-lg border border-emerald-900/30">
+                      <h4 className="text-xs font-medium text-emerald-400 mb-2 flex items-center gap-2">
+                        <span>💰</span> Earnings
+                      </h4>
+                      <div className="flex items-baseline gap-2 mb-2">
+                        <span className="text-2xl font-bold text-white">
+                          {selectedBriefing.earnings.currency === 'USD' ? '$' : selectedBriefing.earnings.currency}
+                          {selectedBriefing.earnings.total.toFixed(2)}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          on {selectedBriefing.earnings.date}
+                        </span>
+                      </div>
+                      {selectedBriefing.earnings.breakdown && selectedBriefing.earnings.breakdown.length > 0 && (
+                        <div className="space-y-1">
+                          {selectedBriefing.earnings.breakdown.map((item, i) => (
+                            <div key={i} className="flex justify-between text-xs">
+                              <span className="text-gray-400">{item.source}</span>
+                              <span className="text-white">
+                                ${item.amount.toFixed(2)} ({item.transactions} txn)
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Priority Tasks */}
+                  {selectedBriefing.priorityTasks && selectedBriefing.priorityTasks.length > 0 && (
+                    <div className="p-3 bg-cyan-900/10 rounded-lg border border-cyan-900/30">
+                      <h4 className="text-xs font-medium text-cyan-400 mb-2 flex items-center gap-2">
+                        <span>📋</span> Priority Tasks ({selectedBriefing.priorityTasks.length})
+                      </h4>
+                      <div className="space-y-2">
+                        {selectedBriefing.priorityTasks.map((task, i) => (
+                          <div key={i} className="p-2 bg-gray-800/50 rounded">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded ${
+                                task.priority === 'urgent' ? 'bg-red-900/50 text-red-400' :
+                                task.priority === 'high' ? 'bg-orange-900/50 text-orange-400' :
+                                task.priority === 'medium' ? 'bg-yellow-900/50 text-yellow-400' :
+                                'bg-gray-700 text-gray-400'
+                              }`}>
+                                {task.priority}
+                              </span>
+                              <span className="text-[10px] text-gray-500">{task.source}</span>
+                              {task.project && (
+                                <span className="text-[10px] text-gray-600">{task.project}</span>
+                              )}
+                            </div>
+                            <p className="text-sm text-white">{task.title}</p>
+                            {task.description && (
+                              <p className="text-[10px] text-gray-400 mt-1 line-clamp-2">{task.description}</p>
+                            )}
+                            {task.assignedManager && (
+                              <p className="text-[10px] text-purple-400 mt-1">
+                                Assigned to: {task.assignedManager}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Managers Spawned */}
+                  {selectedBriefing.managersSpawned && selectedBriefing.managersSpawned.length > 0 && (
+                    <div className="p-3 bg-purple-900/10 rounded-lg border border-purple-900/30">
+                      <h4 className="text-xs font-medium text-purple-400 mb-2 flex items-center gap-2">
+                        <span>🤖</span> Managers Spawned ({selectedBriefing.managersSpawned.length})
+                      </h4>
+                      <div className="space-y-1">
+                        {selectedBriefing.managersSpawned.map((mgr, i) => (
+                          <div key={i} className="flex items-center justify-between text-xs p-2 bg-gray-800/50 rounded">
+                            <span className="text-white font-medium">{mgr.managerName}</span>
+                            <span className="text-gray-400 text-[10px] truncate max-w-[60%]">{mgr.assignedTask}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Changes */}
                   {selectedBriefing.changes && selectedBriefing.changes.length > 0 && (
                     <div>
@@ -545,6 +868,24 @@ export function NightlyBuilds({ isOpen, onClose, getCsrfToken }: NightlyBuildsPr
                           </span>
                         </div>
                         <p className="text-sm text-white line-clamp-2">{briefing.tldr}</p>
+                        {/* Quick stats row */}
+                        <div className="flex gap-2 mt-2 flex-wrap">
+                          {briefing.earnings && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-900/30 text-emerald-400">
+                              💰 ${briefing.earnings.total.toFixed(2)}
+                            </span>
+                          )}
+                          {briefing.priorityTasks && briefing.priorityTasks.length > 0 && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-900/30 text-cyan-400">
+                              📋 {briefing.priorityTasks.length} tasks
+                            </span>
+                          )}
+                          {briefing.managersSpawned && briefing.managersSpawned.length > 0 && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-900/30 text-purple-400">
+                              🤖 {briefing.managersSpawned.length} managers
+                            </span>
+                          )}
+                        </div>
                         {briefing.changes && briefing.changes.length > 0 && (
                           <div className="flex gap-1 mt-2 flex-wrap">
                             {briefing.changes.slice(0, 4).map((change, i) => (

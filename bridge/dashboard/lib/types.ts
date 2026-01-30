@@ -152,6 +152,27 @@ export interface NightlyBuildConfig {
   customPrompt: string;
   lastRun?: string;       // ISO timestamp
   nextRun?: string;       // ISO timestamp
+
+  // Earnings extraction feature
+  earningsExtraction: {
+    enabled: boolean;
+    sources: string[];      // e.g. ["stripe", "gumroad", "custom"]
+    customSourcePath?: string;  // Path to custom earnings data
+  };
+
+  // Priority tasks feature
+  priorityTasks: {
+    enabled: boolean;
+    maxTasks: number;       // How many top tasks to fetch (default: 4)
+    sources: ('orchestrator' | 'human-tasks' | 'github-issues')[];
+  };
+
+  // Manager distribution feature
+  managerDistribution: {
+    enabled: boolean;
+    maxManagersToSpawn: number;  // Max parallel managers (default: 4)
+    taskAssignmentStrategy: 'round-robin' | 'priority-based' | 'skill-match';
+  };
 }
 
 // Nightly Build Briefing
@@ -169,9 +190,43 @@ export interface NightlyBriefing {
 }
 
 export interface NightlyBuildChange {
-  type: 'improvement' | 'fix' | 'optimization' | 'cleanup' | 'scrape' | 'new_tool';
+  type: 'improvement' | 'fix' | 'optimization' | 'cleanup' | 'scrape' | 'new_tool' | 'earnings' | 'task_distribution';
   title: string;
   description: string;
   filesChanged?: string[];
   project?: string;
+}
+
+// Earnings data for briefings
+export interface EarningsData {
+  date: string;
+  total: number;
+  currency: string;
+  breakdown: {
+    source: string;
+    amount: number;
+    transactions: number;
+  }[];
+}
+
+// Priority task from various sources
+export interface PriorityTask {
+  id: string;
+  title: string;
+  description?: string;
+  source: 'orchestrator' | 'human-tasks' | 'github-issues';
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  project?: string;
+  assignedManager?: string;
+}
+
+// Extended briefing with earnings and task data
+export interface NightlyBriefingExtended extends NightlyBriefing {
+  earnings?: EarningsData;
+  priorityTasks?: PriorityTask[];
+  managersSpawned?: {
+    managerId: string;
+    managerName: string;
+    assignedTask: string;
+  }[];
 }
