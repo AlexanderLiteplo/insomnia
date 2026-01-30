@@ -52,6 +52,13 @@ Ask which of these they want to install/authenticate:
 - [ ] Supabase CLI - for database management
 - [ ] gcloud CLI - for Google Cloud
 
+### 6. Desktop App (OPTIONAL but recommended for macOS)
+Ask if they want to create a desktop app:
+- This creates an Insomnia.app in /Applications
+- Can be pinned to the Dock for quick access
+- Launch Insomnia with a single click or via Spotlight
+- Makes it feel like a native macOS application
+
 ## After Collecting All Information:
 
 Display a summary like this:
@@ -69,6 +76,8 @@ Display a summary like this:
 │   - Vercel:     [Yes/No]                │
 │   - Supabase:   [Yes/No]                │
 │   - gcloud:     [Yes/No]                │
+│                                         │
+│ Desktop App:    [Yes/No]                │
 └─────────────────────────────────────────┘
 ```
 
@@ -102,6 +111,17 @@ Only run the ones they selected:
 - Vercel: `npm install -g vercel && vercel login`
 - Supabase: `brew install supabase/tap/supabase && supabase login`
 - gcloud: `brew install --cask google-cloud-sdk && gcloud auth login`
+
+### Step 3.5: Create Desktop App (if requested)
+If they chose to create the desktop app:
+```bash
+{{INSTALL_DIR}}/scripts/create-desktop-app.sh
+```
+
+After the script completes:
+1. Tell them where the app was created (/Applications/Insomnia.app)
+2. Explain how to pin it to the Dock (drag from Applications to Dock)
+3. Mention they can launch it via Spotlight (Cmd+Space, type "Insomnia")
 
 ### Step 4: Create Configuration Files
 
