@@ -428,6 +428,210 @@ function getTaskStatusColor(status: string) {
   }
 }
 
+// Import project modal component
+function ImportProjectModal({
+  onClose,
+  onImport,
+}: {
+  onClose: () => void;
+  onImport: () => void;
+}) {
+  const [folderPath, setFolderPath] = useState('');
+  const [projectName, setProjectName] = useState('');
+  const [isImporting, setIsImporting] = useState(false);
+  const [importStatus, setImportStatus] = useState<string>('');
+
+  const handleBrowse = async () => {
+    try {
+      // Try to use the modern File System Access API if available
+      if ('showDirectoryPicker' in window) {
+        try {
+          // @ts-ignore - showDirectoryPicker is not in all TypeScript definitions yet
+          const dirHandle = await window.showDirectoryPicker();
+          // Get the full path if possible, otherwise use the directory name
+          // Note: Full path access is limited in browsers for security
+          const dirName = dirHandle.name;
+
+          // For local development, we'll ask the user to confirm the full path
+          const fullPath = prompt(
+            `Directory selected: "${dirName}"\n\nPlease enter the full absolute path to this directory:`,
+            `${process.env.HOME || '/Users/username'}/Documents/${dirName}`
+          );
+
+          if (fullPath) {
+            setFolderPath(fullPath);
+            setProjectName(dirName);
+          }
+        } catch (err) {
+          // User cancelled the picker or browser doesn't support it
+          console.log('Directory picker cancelled or not supported');
+          // Fall back to text input
+          fallbackTextInput();
+        }
+      } else {
+        // Fallback for browsers without File System Access API
+        fallbackTextInput();
+      }
+    } catch (error) {
+      console.error('Error selecting folder:', error);
+      fallbackTextInput();
+    }
+  };
+
+  const fallbackTextInput = () => {
+    const path = prompt(
+      'Enter the full path to the project folder:\n\nExample: /Users/username/Documents/my-project'
+    );
+    if (path) {
+      setFolderPath(path);
+      // Extract project name from path
+      const name = path.split('/').filter(Boolean).pop() || '';
+      setProjectName(name);
+    }
+  };
+
+  const handleImport = async () => {
+    if (!folderPath || !projectName) {
+      alert('Please select a folder and enter a project name');
+      return;
+    }
+
+    setIsImporting(true);
+    setImportStatus('Starting import...');
+
+    try {
+      const response = await fetch('/api/projects/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folderPath, projectName }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Import failed');
+      }
+
+      setImportStatus('Project imported successfully!');
+      setTimeout(() => {
+        onImport();
+        onClose();
+      }, 1500);
+    } catch (error) {
+      console.error('Import error:', error);
+      setImportStatus(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setIsImporting(false);
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        className="bg-[var(--card)] border border-[var(--card-border)] rounded-lg p-6 max-w-md w-full mx-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-white">Import Project</h2>
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-white text-2xl leading-none"
+            disabled={isImporting}
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm text-gray-400 mb-2">
+              Project Folder
+              <span className="text-[10px] text-gray-500 ml-2">(absolute path to existing project)</span>
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={folderPath}
+                onChange={(e) => {
+                  setFolderPath(e.target.value);
+                  // Auto-extract project name from path if not manually set
+                  if (!projectName || projectName === folderPath.split('/').filter(Boolean).pop()) {
+                    const name = e.target.value.split('/').filter(Boolean).pop() || '';
+                    setProjectName(name);
+                  }
+                }}
+                placeholder="/Users/username/Documents/my-project"
+                className="flex-1 px-3 py-2 bg-[var(--background)] border border-[var(--card-border)] rounded text-white text-sm focus:border-blue-500 focus:outline-none"
+                disabled={isImporting}
+              />
+              <button
+                onClick={handleBrowse}
+                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isImporting}
+                title="Browse for folder (will prompt for path)"
+              >
+                Browse
+              </button>
+            </div>
+            <p className="text-[10px] text-gray-500 mt-1">
+              Click Browse or type the full path to your project folder
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-400 mb-2">Project Name</label>
+            <input
+              type="text"
+              value={projectName}
+              onChange={(e) => setProjectName(e.target.value)}
+              placeholder="my-awesome-project"
+              className="w-full px-3 py-2 bg-[var(--background)] border border-[var(--card-border)] rounded text-white text-sm"
+              disabled={isImporting}
+            />
+          </div>
+
+          {importStatus && (
+            <div className={`text-sm p-3 rounded ${
+              importStatus.startsWith('Error')
+                ? 'bg-red-900/20 text-red-400 border border-red-900'
+                : importStatus.includes('success')
+                ? 'bg-green-900/20 text-green-400 border border-green-900'
+                : 'bg-blue-900/20 text-blue-400 border border-blue-900'
+            }`}>
+              {importStatus}
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-2">
+            <button
+              onClick={onClose}
+              className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors"
+              disabled={isImporting}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleImport}
+              className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isImporting || !folderPath || !projectName}
+            >
+              {isImporting ? 'Importing...' : 'Import'}
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 // Project detail panel component
 function ProjectDetailPanel({
   project,
@@ -545,6 +749,9 @@ export function ArchitectureTree({
 
   // Selected project for detail view
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+
+  // Import project modal
+  const [showImportModal, setShowImportModal] = useState(false);
 
   // Add activity event
   const addActivityEvent = useCallback((type: ActivityEvent['type'], message: string, color: string) => {
@@ -677,6 +884,19 @@ export function ArchitectureTree({
           ))}
         </AnimatePresence>
       </div>
+
+      {/* Import Project Modal */}
+      <AnimatePresence>
+        {showImportModal && (
+          <ImportProjectModal
+            onClose={() => setShowImportModal(false)}
+            onImport={() => {
+              // Refresh will happen automatically via polling
+              setShowImportModal(false);
+            }}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Left Column: Bridge + Responder */}
       <div className="flex flex-col gap-4 w-48 flex-shrink-0">
@@ -1031,17 +1251,26 @@ export function ArchitectureTree({
 
       {/* Projects */}
       <div className="w-56 flex-shrink-0 flex flex-col relative">
-        <Tooltip
-          content={
-            <TooltipContent
-              title="Active Projects"
-              description="Projects being built by the orchestrator system. Click to see task details."
-            />
-          }
-          position="bottom"
-        >
-          <h3 className="font-medium text-white mb-3 cursor-help">Projects</h3>
-        </Tooltip>
+        <div className="flex items-center justify-between mb-3">
+          <Tooltip
+            content={
+              <TooltipContent
+                title="Active Projects"
+                description="Projects being built by the orchestrator system. Click to see task details."
+              />
+            }
+            position="bottom"
+          >
+            <h3 className="font-medium text-white cursor-help">Projects</h3>
+          </Tooltip>
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="px-2 py-1 text-[10px] bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+            title="Import project from folder"
+          >
+            + Import
+          </button>
+        </div>
         <div className="flex-1 overflow-y-auto bg-[var(--card)] border border-[var(--card-border)] rounded-lg p-2 relative">
           {/* Project detail overlay */}
           <AnimatePresence>
