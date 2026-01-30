@@ -13,6 +13,19 @@ export interface Manager {
   lastActiveAt: string;
 }
 
+// Task interface for project tasks
+export interface ProjectTask {
+  id: string;
+  name: string;
+  description?: string;
+  status: 'pending' | 'in_progress' | 'worker_done' | 'completed';
+  requirements?: string[];
+  testCommand?: string;
+  testsPassing?: boolean;
+  workerNotes?: string;
+  managerReview?: string;
+}
+
 // Project interface
 export interface Project {
   name: string;
@@ -23,6 +36,7 @@ export interface Project {
   currentTask?: string | null;
   lastCompletedTask?: string | null;
   outputDir?: string | null;
+  tasks?: ProjectTask[];
 }
 
 // Bridge status interface

@@ -27,6 +27,92 @@ function formatRuntime(runtime: string): string {
   return runtime;
 }
 
+function summarizePrompt(prompt: string): string {
+  // Extract the key intent from a prompt to create a concise label
+  const text = prompt.trim().toLowerCase();
+
+  // Action keyword patterns with their display labels
+  const actionPatterns: Array<{ pattern: RegExp; prefix: string }> = [
+    // Fix/Debug patterns
+    { pattern: /(?:fix|debug|resolve|solve)\s+(?:the\s+)?(?:issue|bug|error|problem)?\s*(?:with|in|on|for)?\s*(.+)/i, prefix: 'Fixing' },
+    { pattern: /(?:fix|debug)\s+(.+)/i, prefix: 'Fixing' },
+
+    // Add/Create patterns
+    { pattern: /(?:add|create|implement|build|make)\s+(?:a\s+)?(?:new\s+)?(.+)/i, prefix: 'Adding' },
+
+    // Update/Improve patterns
+    { pattern: /(?:update|improve|enhance|refactor|optimize)\s+(?:the\s+)?(.+)/i, prefix: 'Updating' },
+
+    // Review/Check patterns
+    { pattern: /(?:review|check|look\s+at|examine|analyze)\s+(?:the\s+)?(.+)/i, prefix: 'Reviewing' },
+
+    // Help patterns
+    { pattern: /(?:help\s+(?:me\s+)?(?:with|to)?\s*)(.+)/i, prefix: '' },
+    { pattern: /(?:can\s+you|could\s+you|please)\s+(.+)/i, prefix: '' },
+
+    // Test patterns
+    { pattern: /(?:run|execute)\s+(?:the\s+)?tests?\s*(?:for|on|in)?\s*(.+)?/i, prefix: 'Testing' },
+    { pattern: /(?:test)\s+(.+)/i, prefix: 'Testing' },
+
+    // Install/Setup patterns
+    { pattern: /(?:install|setup|configure)\s+(.+)/i, prefix: 'Setting up' },
+
+    // Remove/Delete patterns
+    { pattern: /(?:remove|delete|clean\s+up)\s+(.+)/i, prefix: 'Removing' },
+  ];
+
+  for (const { pattern, prefix } of actionPatterns) {
+    const match = prompt.match(pattern);
+    if (match && match[1]) {
+      let action = match[1].trim();
+      // Remove common trailing patterns
+      action = action.replace(/\s*(?:please|thanks|thank\s+you|could\s+you|can\s+you).*$/i, '');
+      // Remove quotes
+      action = action.replace(/['"]/g, '');
+      // Limit length
+      if (action.length > 40) {
+        action = action.substring(0, 37) + '...';
+      }
+      // Capitalize first letter
+      action = action.charAt(0).toUpperCase() + action.slice(1);
+
+      if (prefix) {
+        return `${prefix} ${action.charAt(0).toLowerCase() + action.slice(1)}`;
+      }
+      return action;
+    }
+  }
+
+  // If no pattern matched, extract key nouns/phrases
+  // Look for specific technical terms
+  const techTerms = [
+    'api', 'ui', 'database', 'auth', 'login', 'component', 'page', 'route',
+    'function', 'class', 'module', 'service', 'hook', 'modal', 'form', 'button',
+    'table', 'query', 'endpoint', 'config', 'setting', 'style', 'css', 'test'
+  ];
+
+  for (const term of techTerms) {
+    if (text.includes(term)) {
+      // Extract context around the term
+      const idx = text.indexOf(term);
+      const start = Math.max(0, text.lastIndexOf(' ', idx - 1) + 1);
+      const end = Math.min(text.length, text.indexOf(' ', idx + term.length + 20));
+      let context = prompt.substring(start, end > start ? end : undefined).trim();
+      if (context.length > 45) {
+        context = context.substring(0, 42) + '...';
+      }
+      return context.charAt(0).toUpperCase() + context.slice(1);
+    }
+  }
+
+  // Fallback: take first meaningful words
+  const words = prompt.split(/\s+/).slice(0, 6).join(' ');
+  if (words.length > 45) {
+    return words.substring(0, 42) + '...';
+  }
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
 function getProcessLabel(process: ClaudeProcess): string {
   // Try to determine what this process is doing based on command/workingDir/prompt
   const cmd = process.command.toLowerCase();
@@ -36,26 +122,9 @@ function getProcessLabel(process: ClaudeProcess): string {
   if (cmd.includes('worker') || cmd.includes('orchestrator')) return 'Orchestrator Worker';
   if (cmd.includes('responder')) return 'Message Responder';
 
-  // If there's a prompt, show a meaningful portion
-  if (process.prompt) {
-    // Try to extract the key action/task from the prompt
-    const prompt = process.prompt.trim();
-
-    // Look for common patterns like "help me...", "can you...", etc.
-    const patterns = [
-      /(?:help me |can you |please |could you )(.+?)(?:\.|$)/i,
-      /^(.{0,50})/  // fallback: first 50 chars
-    ];
-
-    for (const pattern of patterns) {
-      const match = prompt.match(pattern);
-      if (match) {
-        const text = match[1] || match[0];
-        // Capitalize first letter
-        const formatted = text.charAt(0).toUpperCase() + text.slice(1);
-        return formatted.length > 50 ? formatted.substring(0, 47) + '...' : formatted;
-      }
-    }
+  // If there's a prompt, generate a meaningful summary
+  if (process.prompt && process.prompt.length > 3) {
+    return summarizePrompt(process.prompt);
   }
 
   // If working in a specific directory, show the context
@@ -64,20 +133,20 @@ function getProcessLabel(process: ClaudeProcess): string {
     const dirName = parts[parts.length - 1];
 
     // Skip generic names like "Desktop", "Documents", username
-    const genericNames = ['desktop', 'documents', 'downloads', 'home'];
+    const genericNames = ['desktop', 'documents', 'downloads', 'home', 'users'];
     if (dirName && !genericNames.includes(dirName.toLowerCase()) && dirName !== parts[parts.length - 2]) {
       // Check if it looks like a project directory
       if (dirName.includes('-') || dirName.includes('_')) {
         return `Working on ${dirName}`;
       }
-      return dirName;
+      return `Working in ${dirName}`;
     }
 
     // Try parent directory
     if (parts.length > 1) {
       const parentDir = parts[parts.length - 2];
       if (parentDir && !genericNames.includes(parentDir.toLowerCase())) {
-        return parentDir;
+        return `Working in ${parentDir}`;
       }
     }
   }

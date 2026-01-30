@@ -5,7 +5,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { Robot } from '../robots/Robot';
 import { StatusDot } from '../ui/StatusDot';
 import { Tooltip, TooltipContent } from '../ui/Tooltip';
-import type { BridgeStatus, Manager, Project, SystemEvent, ModelConfig } from '../../lib/types';
+import type { BridgeStatus, Manager, Project, ProjectTask, SystemEvent, ModelConfig } from '../../lib/types';
 
 interface OrchestratorStatus {
   workerRunning: boolean;
@@ -236,21 +236,19 @@ function ManagerRow({
 
   return (
     <motion.div
-      className={`flex items-center gap-3 py-2 border-b border-[var(--card-border)] last:border-0 relative ${animationClass}`}
+      className={`flex items-center gap-2 py-1.5 px-1 border-b border-[var(--card-border)] last:border-0 relative ${animationClass}`}
       initial={{ opacity: 0, x: -10 }}
       animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: index * 0.03 }}
+      transition={{ delay: index * 0.02 }}
       layout
-      style={isNew || hasNewMessage ? { boxShadow: `0 0 15px ${color}40` } : {}}
+      style={isNew || hasNewMessage ? { boxShadow: `0 0 10px ${color}30` } : {}}
     >
       {/* Expanding rings for new managers */}
       <ExpandingRings active={isNew} color={color} />
       {/* Particle effect for new managers */}
       <EventParticles active={isNew} color={color} />
-      {/* Electric sparks for new managers */}
-      <ElectricSparks active={isNew} color={color} />
 
-      {/* Robot for this manager */}
+      {/* Robot for this manager - smaller */}
       <Tooltip
         content={
           <TooltipContent
@@ -260,59 +258,48 @@ function ManagerRow({
         }
         position="right"
       >
-        <div className={`relative ${hasNewMessage ? 'robot-excited' : ''}`}>
-          <Robot state={robotState} size={32} color={color} />
+        <div className={`relative flex-shrink-0 ${hasNewMessage ? 'robot-excited' : ''}`}>
+          <Robot state={robotState} size={22} color={color} />
           {isProcessing && (
-            <div className="absolute -bottom-1 left-1/2 -translate-x-1/2">
-              <div className="w-2 h-2 bg-blue-500 rounded-full heartbeat" style={{ boxShadow: '0 0 6px #3b82f6' }} />
+            <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2">
+              <div className="w-1.5 h-1.5 bg-blue-500 rounded-full heartbeat" style={{ boxShadow: '0 0 4px #3b82f6' }} />
             </div>
           )}
         </div>
       </Tooltip>
 
-      {/* Manager info */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="font-medium text-white text-xs truncate">{manager.name}</span>
-          {hasQueue && (
-            <Tooltip
-              content={`${manager.messageQueue.length} message${manager.messageQueue.length > 1 ? 's' : ''} queued - waiting to be processed`}
-              position="top"
-            >
-              <motion.span
-                className={`text-[10px] bg-yellow-900/50 text-yellow-500 px-1.5 py-0.5 rounded cursor-help ${queueChanged ? 'badge-pop' : ''}`}
-                animate={queueChanged ? { scale: [1, 1.3, 1] } : {}}
-                transition={{ duration: 0.3 }}
-              >
-                {manager.messageQueue.length}
-              </motion.span>
-            </Tooltip>
-          )}
-          {isNew && (
+      {/* Manager info - inline */}
+      <div className="flex-1 min-w-0 flex items-center gap-1.5">
+        <span className="font-medium text-white text-[11px] truncate">{manager.name}</span>
+        {hasQueue && (
+          <Tooltip
+            content={`${manager.messageQueue.length} queued`}
+            position="top"
+          >
             <motion.span
-              className="text-[9px] bg-green-900/50 text-green-400 px-1 py-0.5 rounded"
-              initial={{ scale: 0, rotate: -10 }}
-              animate={{ scale: 1, rotate: 0 }}
-              transition={{ type: 'spring', stiffness: 500, damping: 15 }}
-              style={{ boxShadow: '0 0 8px #22c55e' }}
+              className={`text-[9px] bg-yellow-900/50 text-yellow-500 px-1 py-0.5 rounded cursor-help ${queueChanged ? 'badge-pop' : ''}`}
+              animate={queueChanged ? { scale: [1, 1.2, 1] } : {}}
             >
-              NEW
+              {manager.messageQueue.length}
             </motion.span>
-          )}
-          {isProcessing && (
-            <TypingIndicator />
-          )}
-        </div>
-        {manager.currentTask && (
-          <p className={`text-[10px] truncate ${isProcessing ? 'text-blue-400' : 'text-gray-500'}`}>
-            {isProcessing ? '⚡ ' : ''}{manager.currentTask}
-          </p>
+          </Tooltip>
         )}
+        {isNew && (
+          <motion.span
+            className="text-[8px] bg-green-900/50 text-green-400 px-1 rounded"
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            style={{ boxShadow: '0 0 6px #22c55e' }}
+          >
+            NEW
+          </motion.span>
+        )}
+        {isProcessing && <TypingIndicator />}
       </div>
 
       {/* Status indicator */}
       <Tooltip content={STATUS_TOOLTIPS[statusType]} position="left">
-        <div className={isProcessing ? 'heartbeat' : ''}>
+        <div className={`flex-shrink-0 ${isProcessing ? 'heartbeat' : ''}`}>
           <StatusDot status={statusType} />
         </div>
       </Tooltip>
@@ -413,6 +400,124 @@ function OrchestratorTeam({ orchestrator, workerJustSpawned = false, managerJust
   );
 }
 
+// Task status icon helper
+function getTaskStatusIcon(status: string) {
+  switch (status) {
+    case 'completed':
+      return '✓';
+    case 'in_progress':
+      return '●';
+    case 'worker_done':
+      return '◐';
+    default:
+      return '○';
+  }
+}
+
+// Task status color helper
+function getTaskStatusColor(status: string) {
+  switch (status) {
+    case 'completed':
+      return 'text-green-500';
+    case 'in_progress':
+      return 'text-blue-400';
+    case 'worker_done':
+      return 'text-yellow-500';
+    default:
+      return 'text-gray-500';
+  }
+}
+
+// Project detail panel component
+function ProjectDetailPanel({
+  project,
+  onClose,
+}: {
+  project: Project;
+  onClose: () => void;
+}) {
+  const tasks = project.tasks || [];
+  const completedCount = tasks.filter(t => t.status === 'completed').length;
+  const percent = tasks.length > 0 ? Math.round((completedCount / tasks.length) * 100) : 0;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: 20 }}
+      className="absolute inset-0 bg-[var(--card)] border border-[var(--card-border)] rounded-lg z-10 flex flex-col"
+    >
+      {/* Header */}
+      <div className="p-3 border-b border-[var(--card-border)] flex-shrink-0">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="font-medium text-white text-sm truncate flex-1">{project.name}</h3>
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-white text-lg leading-none ml-2"
+          >
+            ×
+          </button>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex-1 bg-gray-800 rounded h-1.5">
+            <div
+              className={`h-1.5 rounded transition-all ${
+                percent === 100 ? 'bg-green-500' : 'bg-blue-500'
+              }`}
+              style={{ width: `${percent}%` }}
+            />
+          </div>
+          <span className="text-[10px] text-gray-400">{percent}%</span>
+        </div>
+        <p className="text-[10px] text-gray-500 mt-1">
+          {completedCount}/{tasks.length} tasks completed
+        </p>
+      </div>
+
+      {/* Task list */}
+      <div className="flex-1 overflow-y-auto p-2">
+        {tasks.length === 0 ? (
+          <div className="text-center py-4 text-gray-500 text-xs">No tasks</div>
+        ) : (
+          <div className="space-y-1">
+            {tasks.map((task, i) => (
+              <div
+                key={task.id || i}
+                className={`p-2 rounded border ${
+                  task.status === 'in_progress'
+                    ? 'border-blue-800 bg-blue-900/20'
+                    : task.status === 'completed'
+                      ? 'border-green-900/50 bg-green-900/10'
+                      : 'border-[var(--card-border)] bg-[var(--background)]'
+                }`}
+              >
+                <div className="flex items-start gap-2">
+                  <span className={`flex-shrink-0 ${getTaskStatusColor(task.status)}`}>
+                    {getTaskStatusIcon(task.status)}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-[11px] ${
+                      task.status === 'completed' ? 'text-gray-500' : 'text-white'
+                    }`}>
+                      {task.name}
+                    </p>
+                    {task.status === 'in_progress' && (
+                      <p className="text-[9px] text-blue-400 mt-0.5">In progress...</p>
+                    )}
+                    {task.status === 'worker_done' && (
+                      <p className="text-[9px] text-yellow-500 mt-0.5">Awaiting review</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
 export function ArchitectureTree({
   bridge,
   managers,
@@ -437,6 +542,9 @@ export function ArchitectureTree({
   // Activity notifications
   const [activityEvents, setActivityEvents] = useState<ActivityEvent[]>([]);
   const [showScreenFlash, setShowScreenFlash] = useState(false);
+
+  // Selected project for detail view
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
 
   // Add activity event
   const addActivityEvent = useCallback((type: ActivityEvent['type'], message: string, color: string) => {
@@ -870,34 +978,30 @@ export function ArchitectureTree({
       </div>
 
       {/* Managers List */}
-      <div className="flex-1 min-w-0 flex flex-col">
-        <div className="flex items-center gap-2 mb-3">
+      <div className="w-52 flex-shrink-0 flex flex-col">
+        <div className="flex items-center gap-2 mb-2">
           <Tooltip
             content={
               <TooltipContent
                 title="Manager Agents"
-                description="Long-running Opus agents that handle specific topics. Each manager can spawn workers and orchestrators for complex tasks."
+                description="Long-running Opus agents that handle specific topics."
               />
             }
             position="bottom"
           >
-            <h3 className="font-medium text-white cursor-help">Managers</h3>
+            <h3 className="font-medium text-white text-sm cursor-help">Managers</h3>
           </Tooltip>
-          <Tooltip content="Total number of manager agents registered in the system" position="bottom">
-            <span className="text-[10px] text-gray-500 bg-[var(--card)] px-2 py-0.5 rounded cursor-help">
-              {managers.length} total
-            </span>
-          </Tooltip>
+          <span className="text-[9px] text-gray-500 bg-[var(--card)] px-1.5 py-0.5 rounded">
+            {managers.length}
+          </span>
           {activeManagers.length > 0 && (
-            <Tooltip content="Managers currently processing tasks or with queued messages" position="bottom">
-              <span className="text-[10px] text-green-600 bg-green-900/30 px-2 py-0.5 rounded cursor-help">
-                {activeManagers.length} active
-              </span>
-            </Tooltip>
+            <span className="text-[9px] text-green-600 bg-green-900/30 px-1.5 py-0.5 rounded">
+              {activeManagers.length} active
+            </span>
           )}
         </div>
 
-        <div className="flex-1 overflow-y-auto bg-[var(--card)] border border-[var(--card-border)] rounded-lg p-2">
+        <div className="flex-1 overflow-y-auto bg-[var(--card)] border border-[var(--card-border)] rounded-lg p-1.5">
           <AnimatePresence>
             {displayManagers.map((manager, i) => (
               <ManagerRow
@@ -913,7 +1017,7 @@ export function ArchitectureTree({
           </AnimatePresence>
 
           {idleManagers.length > 10 - activeManagers.length && (
-            <div className="text-[10px] text-gray-600 py-2 text-center">
+            <div className="text-[9px] text-gray-600 py-1.5 text-center">
               +{idleManagers.length - (10 - activeManagers.length)} more idle
             </div>
           )}
@@ -926,19 +1030,29 @@ export function ArchitectureTree({
       </div>
 
       {/* Projects */}
-      <div className="w-48 flex-shrink-0 flex flex-col">
+      <div className="w-56 flex-shrink-0 flex flex-col relative">
         <Tooltip
           content={
             <TooltipContent
               title="Active Projects"
-              description="Projects being built by the orchestrator system. Progress shows completed tasks out of total tasks."
+              description="Projects being built by the orchestrator system. Click to see task details."
             />
           }
           position="bottom"
         >
           <h3 className="font-medium text-white mb-3 cursor-help">Projects</h3>
         </Tooltip>
-        <div className="flex-1 overflow-y-auto bg-[var(--card)] border border-[var(--card-border)] rounded-lg p-2">
+        <div className="flex-1 overflow-y-auto bg-[var(--card)] border border-[var(--card-border)] rounded-lg p-2 relative">
+          {/* Project detail overlay */}
+          <AnimatePresence>
+            {selectedProject && (
+              <ProjectDetailPanel
+                project={selectedProject}
+                onClose={() => setSelectedProject(null)}
+              />
+            )}
+          </AnimatePresence>
+
           {projects.length === 0 ? (
             <div className="text-center py-4">
               <div className="text-2xl mb-1">📁</div>
@@ -947,25 +1061,49 @@ export function ArchitectureTree({
           ) : (
             projects.map((project, i) => {
               const percent = project.total > 0 ? Math.round((project.completed / project.total) * 100) : 0;
+              const isActive = project.status === 'active';
+              const isComplete = percent === 100;
               return (
-                <Tooltip
+                <motion.div
                   key={i}
-                  content={`${project.completed} of ${project.total} tasks completed`}
-                  position="left"
+                  className={`py-2 px-2 -mx-2 border-b border-[var(--card-border)] last:border-0 cursor-pointer rounded transition-colors ${
+                    isActive ? 'bg-blue-900/20 hover:bg-blue-900/30' : 'hover:bg-[var(--background)]'
+                  }`}
+                  onClick={() => setSelectedProject(project)}
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.99 }}
                 >
-                  <div className="py-2 border-b border-[var(--card-border)] last:border-0 cursor-help">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs text-white truncate">{project.name}</span>
-                      <span className="text-[10px] text-gray-500">{percent}%</span>
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                      <span className={`text-xs truncate ${isComplete ? 'text-green-400' : 'text-white'}`}>
+                        {project.name}
+                      </span>
+                      {isActive && (
+                        <span className="flex-shrink-0 w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
+                      )}
+                      {isComplete && (
+                        <span className="flex-shrink-0 text-[9px] text-green-500">✓</span>
+                      )}
                     </div>
-                    <div className="w-full bg-gray-800 rounded h-1">
-                      <div
-                        className="bg-green-600 h-1 rounded"
-                        style={{ width: `${percent}%` }}
-                      />
-                    </div>
+                    <span className="text-[10px] text-gray-500 ml-2">{percent}%</span>
                   </div>
-                </Tooltip>
+                  <div className="w-full bg-gray-800 rounded h-1">
+                    <div
+                      className={`h-1 rounded transition-all ${
+                        isComplete ? 'bg-green-600' : isActive ? 'bg-blue-500' : 'bg-gray-600'
+                      }`}
+                      style={{ width: `${percent}%` }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between mt-1">
+                    <span className="text-[9px] text-gray-600">
+                      {project.completed}/{project.total} tasks
+                    </span>
+                    <span className="text-[9px] text-gray-600">
+                      Click for details →
+                    </span>
+                  </div>
+                </motion.div>
               );
             })
           )}

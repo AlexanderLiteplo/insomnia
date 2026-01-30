@@ -180,33 +180,32 @@ function getClaudeProcessDetails(): ClaudeProcess[] {
       // Extract prompt from command if present (-p flag or positional arg after --)
       let prompt: string | undefined;
 
-      // Try -p flag first (both quoted and unquoted)
-      const promptMatch = command.match(/-p\s+["']([^"']+)["']|-p\s+([^\s-]+)/);
-      if (promptMatch) {
-        prompt = (promptMatch[1] || promptMatch[2] || '').substring(0, 200);
-      }
+      // Try -p flag - capture everything after -p until end or next flag pattern
+      // Pattern 1: -p "quoted content" or -p 'quoted content'
+      const promptMatchQuoted = command.match(/-p\s+["']([^"']+)["']/);
+      // Pattern 2: -p followed by unquoted content (capture until end of command)
+      // The -p flag typically comes at the end, so capture everything after it
+      // But make sure it's not immediately followed by another flag (like -p --other-flag)
+      const promptMatchUnquoted = command.match(/-p\s+([^"'\-][^]*?)$/);
 
-      // If no -p flag, look for content after -- (common pattern: claude -- "prompt")
-      if (!prompt) {
-        const ddMatch = command.match(/--\s+["']([^"']+)["']|--\s+([^\s]+)/);
-        if (ddMatch) {
-          prompt = (ddMatch[1] || ddMatch[2] || '').substring(0, 200);
+      if (promptMatchQuoted) {
+        prompt = promptMatchQuoted[1].substring(0, 300);
+      } else if (promptMatchUnquoted) {
+        // Clean up the captured content - it might have trailing garbage
+        let captured = promptMatchUnquoted[1].trim();
+        // Remove any trailing flags that might have been captured (unlikely but safe)
+        captured = captured.replace(/\s+--?\w+(?:\s+|$).*$/, '').trim();
+        // Make sure we didn't capture just a flag
+        if (captured.length > 3 && !captured.startsWith('-')) {
+          prompt = captured.substring(0, 300);
         }
       }
 
-      // If still no prompt, check for common phrases in the command itself
+      // If no -p flag, look for content after standalone -- (common pattern: claude -- "prompt")
       if (!prompt) {
-        const phrases = ['help', 'fix', 'add', 'create', 'update', 'debug', 'build', 'test'];
-        for (const phrase of phrases) {
-          if (command.toLowerCase().includes(phrase)) {
-            // Extract surrounding context
-            const idx = command.toLowerCase().indexOf(phrase);
-            const context = command.substring(Math.max(0, idx), Math.min(command.length, idx + 100));
-            if (context.length > 10) {
-              prompt = context.trim();
-              break;
-            }
-          }
+        const ddMatch = command.match(/\s--\s+["']?([^"']+?)["']?$/);
+        if (ddMatch) {
+          prompt = ddMatch[1].trim().substring(0, 300);
         }
       }
 
@@ -263,7 +262,12 @@ function getClaudeProcessCount(): number {
 interface Task {
   id: string;
   name: string;
+  description?: string;
   status: string;
+  requirements?: string[];
+  testCommand?: string;
+  testsPassing?: boolean;
+  workerNotes?: string;
   managerReview?: string;
 }
 
@@ -276,6 +280,7 @@ interface Project {
   currentTask: string | null;
   lastCompletedTask: string | null;
   outputDir: string | null;
+  tasks: Task[];
 }
 
 interface OrchestratorStatus {
@@ -321,58 +326,85 @@ function getOrchestratorStatus(): OrchestratorStatus {
   return { workerRunning, workerPid, managerRunning, managerPid };
 }
 
+function parseTasksFile(tasksFile: string, fallbackName: string): Project | null {
+  if (!fs.existsSync(tasksFile)) return null;
+
+  try {
+    const data = JSON.parse(fs.readFileSync(tasksFile, 'utf8'));
+    const tasks: Task[] = data.tasks || [];
+
+    const completedTasks = tasks.filter(t => t.status === 'completed');
+    const inProgressTask = tasks.find(t => t.status === 'in_progress' || t.status === 'worker_done');
+    const pendingTasks = tasks.filter(t => t.status === 'pending');
+
+    // Find last completed task (last one in the completed list)
+    const lastCompleted = completedTasks.length > 0
+      ? completedTasks[completedTasks.length - 1].name
+      : null;
+
+    // Determine status
+    let status: 'complete' | 'active' | 'paused' = 'paused';
+    if (completedTasks.length === tasks.length && tasks.length > 0) {
+      status = 'complete';
+    } else if (inProgressTask) {
+      status = 'active';
+    }
+
+    return {
+      name: data.project?.name || fallbackName,
+      description: data.project?.description || '',
+      completed: completedTasks.length,
+      total: tasks.length,
+      status,
+      currentTask: inProgressTask?.name || (pendingTasks.length > 0 ? `${pendingTasks.length} pending` : null),
+      lastCompletedTask: lastCompleted,
+      outputDir: data.project?.outputDir || null,
+      tasks: tasks.map(t => ({
+        id: t.id,
+        name: t.name,
+        description: t.description,
+        status: t.status as 'pending' | 'in_progress' | 'worker_done' | 'completed',
+        requirements: t.requirements,
+        testCommand: t.testCommand,
+        testsPassing: t.testsPassing,
+        workerNotes: t.workerNotes,
+        managerReview: t.managerReview,
+      })),
+    };
+  } catch (err) {
+    console.error(`Error reading ${tasksFile}:`, err);
+    return null;
+  }
+}
+
 function getProjects(): Project[] {
   const projects: Project[] = [];
+  const seenNames = new Set<string>();
 
-  // Scan projects directory
-  if (!fs.existsSync(PROJECTS_DIR)) {
-    return projects;
+  // 1. First, check legacy prds/tasks.json location (single-project mode)
+  const legacyTasksFile = path.join(ORCHESTRATOR_DIR, 'prds', 'tasks.json');
+  const legacyProject = parseTasksFile(legacyTasksFile, 'default');
+  if (legacyProject && legacyProject.total > 0) {
+    projects.push(legacyProject);
+    seenNames.add(legacyProject.name);
   }
 
-  const projectDirs = fs.readdirSync(PROJECTS_DIR).filter(d => {
-    const fullPath = path.join(PROJECTS_DIR, d);
-    return fs.statSync(fullPath).isDirectory();
-  });
+  // 2. Scan projects directory for multi-project mode
+  if (fs.existsSync(PROJECTS_DIR)) {
+    const projectDirs = fs.readdirSync(PROJECTS_DIR).filter(d => {
+      const fullPath = path.join(PROJECTS_DIR, d);
+      return fs.statSync(fullPath).isDirectory();
+    });
 
-  for (const dir of projectDirs) {
-    const tasksFile = path.join(PROJECTS_DIR, dir, 'tasks.json');
+    for (const dir of projectDirs) {
+      const tasksFile = path.join(PROJECTS_DIR, dir, 'tasks.json');
+      const project = parseTasksFile(tasksFile, dir);
 
-    if (!fs.existsSync(tasksFile)) continue;
-
-    try {
-      const data = JSON.parse(fs.readFileSync(tasksFile, 'utf8'));
-      const tasks: Task[] = data.tasks || [];
-
-      const completedTasks = tasks.filter(t => t.status === 'completed');
-      const inProgressTask = tasks.find(t => t.status === 'in_progress' || t.status === 'worker_done');
-      const pendingTasks = tasks.filter(t => t.status === 'pending');
-
-      // Find last completed task (last one in the completed list)
-      const lastCompleted = completedTasks.length > 0
-        ? completedTasks[completedTasks.length - 1].name
-        : null;
-
-      // Determine status
-      let status: 'complete' | 'active' | 'paused' = 'paused';
-      if (completedTasks.length === tasks.length && tasks.length > 0) {
-        status = 'complete';
-      } else if (inProgressTask) {
-        status = 'active';
+      // Skip if we already have a project with this name (avoid duplicates)
+      if (project && !seenNames.has(project.name)) {
+        projects.push(project);
+        seenNames.add(project.name);
       }
-
-      projects.push({
-        name: data.project?.name || dir,
-        description: data.project?.description || '',
-        completed: completedTasks.length,
-        total: tasks.length,
-        status,
-        currentTask: inProgressTask?.name || (pendingTasks.length > 0 ? `${pendingTasks.length} pending` : null),
-        lastCompletedTask: lastCompleted,
-        outputDir: data.project?.outputDir || null,
-      });
-    } catch (err) {
-      // Skip invalid project files
-      console.error(`Error reading ${tasksFile}:`, err);
     }
   }
 
