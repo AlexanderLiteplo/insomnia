@@ -8,10 +8,14 @@ import { DonutAnimation } from '../components/ascii/DonutAnimation';
 import { ModelSelector } from '../components/ModelSelector';
 import { AgentSpawner } from '../components/AgentSpawner';
 import { ClaudesPanel } from '../components/ClaudesPanel';
+import { NightlyBuilds, NightlyBuildsButton } from '../components/NightlyBuilds';
 import { Tooltip, TooltipContent } from '../components/ui/Tooltip';
 
 // Section expansion types - now includes 'tasks' for the horizontal grid layout
 type ExpandedSection = 'managers' | 'projects' | 'claudes' | 'tasks' | null;
+
+// Selected task for detailed view
+type SelectedTask = string | null;
 
 // CSRF token management
 let csrfToken: string | null = null;
@@ -106,7 +110,10 @@ export default function Dashboard() {
   const [showHealth, setShowHealth] = useState(false);
   const [showModels, setShowModels] = useState(false);
   const [showSpawner, setShowSpawner] = useState(false);
+  const [showNightlyBuilds, setShowNightlyBuilds] = useState(false);
+  const [nightlyConfig, setNightlyConfig] = useState<{ enabled: boolean; nextRun?: string | null } | null>(null);
   const [expandedSection, setExpandedSection] = useState<ExpandedSection>(null);
+  const [selectedTask, setSelectedTask] = useState<SelectedTask>(null);
   const [isHealing, setIsHealing] = useState(false);
   const [healStatus, setHealStatus] = useState<string | null>(null);
 
@@ -142,6 +149,18 @@ export default function Dashboard() {
       setHealth(data);
     } catch (err) {
       console.error('Failed to fetch health:', err);
+    }
+  };
+
+  const fetchNightlyConfig = async () => {
+    try {
+      const res = await fetch('/api/nightly-builds');
+      if (res.ok) {
+        const data = await res.json();
+        setNightlyConfig({ enabled: data.config?.enabled, nextRun: data.config?.nextRun });
+      }
+    } catch (err) {
+      console.error('Failed to fetch nightly config:', err);
     }
   };
 
@@ -191,13 +210,16 @@ export default function Dashboard() {
     fetchStatus();
     fetchTasks();
     fetchHealth();
+    fetchNightlyConfig();
     const statusInterval = setInterval(fetchStatus, 5000);
     const tasksInterval = setInterval(fetchTasks, 10000);
     const healthInterval = setInterval(fetchHealth, 15000);
+    const nightlyInterval = setInterval(fetchNightlyConfig, 60000); // Check every minute
     return () => {
       clearInterval(statusInterval);
       clearInterval(tasksInterval);
       clearInterval(healthInterval);
+      clearInterval(nightlyInterval);
     };
   }, []);
 
@@ -215,6 +237,18 @@ export default function Dashboard() {
   const pendingTasks = tasks.filter(t => t.status === 'pending' || t.status === 'in_progress');
   const urgentCount = pendingTasks.filter(t => t.priority === 'urgent').length;
   const highCount = pendingTasks.filter(t => t.priority === 'high').length;
+  const selectedTaskData = selectedTask ? tasks.find(t => t.id === selectedTask) : null;
+
+  // Helper for panel flex animation - avoids TypeScript narrowing issues
+  const getPanelFlex = (section: 'managers' | 'projects' | 'claudes' | 'tasks') => {
+    if (expandedSection === section) return '2 1 0%';
+    if (expandedSection !== null) return '0.5 1 0%';
+    return '1 1 0%';
+  };
+  const getPanelOpacity = (section: 'managers' | 'projects' | 'claudes' | 'tasks') => {
+    if (expandedSection !== null && expandedSection !== section) return 0.7;
+    return 1;
+  };
 
   return (
     <div className="h-screen w-screen overflow-hidden flex flex-col bg-[var(--background)]">
@@ -293,6 +327,13 @@ export default function Dashboard() {
               <div className="text-[9px] text-gray-500">Models</div>
             </button>
           </Tooltip>
+
+          {/* Nightly Builds Button */}
+          <NightlyBuildsButton
+            onClick={() => setShowNightlyBuilds(!showNightlyBuilds)}
+            enabled={nightlyConfig?.enabled}
+            nextRun={nightlyConfig?.nextRun}
+          />
 
           {/* Quick Agent Spawn Button */}
           <Tooltip
@@ -454,6 +495,13 @@ export default function Dashboard() {
             onSpawn={() => fetchStatus()}
           />
 
+          {/* Nightly Builds Modal */}
+          <NightlyBuilds
+            isOpen={showNightlyBuilds}
+            onClose={() => { setShowNightlyBuilds(false); fetchNightlyConfig(); }}
+            getCsrfToken={getCsrfToken}
+          />
+
           {/* Actions Dropdown */}
           <AnimatePresence>
             {showActions && (
@@ -521,13 +569,13 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Main Content: Horizontal Grid Layout - Projects | Claudes | Tasks */}
+      {/* Main Content: Horizontal Grid Layout - Managers | Projects | Claudes | Tasks */}
       <div className="flex-1 flex min-h-0">
-        {/* Left Column: System Architecture (Bridge, Responder, Orchestrator, Managers) */}
+        {/* Left Column: System Architecture (Bridge, Responder, Orchestrator) */}
         <motion.div
           className="flex-shrink-0 overflow-hidden border-r border-[var(--card-border)]"
           animate={{
-            width: expandedSection ? 200 : 280,
+            width: expandedSection ? 160 : 200,
             opacity: expandedSection ? 0.85 : 1
           }}
           transition={{ duration: 0.3, ease: 'easeInOut' }}
@@ -543,16 +591,221 @@ export default function Dashboard() {
               expandedSection={expandedSection}
               onSectionClick={setExpandedSection}
               compactMode={!!expandedSection}
+              hideManagers={true}
             />
           )}
+        </motion.div>
+
+        {/* Middle Detail Panel - Task Details */}
+        <AnimatePresence>
+          {selectedTaskData && (
+            <motion.div
+              className="overflow-hidden border-r border-[var(--neon-green)] bg-[var(--card)] flex flex-col flex-shrink-0"
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: 400, opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
+              transition={{ duration: 0.3, ease: 'easeInOut' }}
+            >
+              <div className="p-3 border-b border-[var(--card-border)] bg-[var(--neon-green)]/5 flex items-center justify-between">
+                <h2 className="font-medium text-sm text-[var(--neon-green)]">Task Details</h2>
+                <button
+                  onClick={() => setSelectedTask(null)}
+                  className="text-gray-500 hover:text-gray-300 text-xs"
+                >
+                  Close ✕
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-4">
+                <div className="mb-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <PriorityBadge priority={selectedTaskData.priority} />
+                    {selectedTaskData.project && (
+                      <span className="text-[10px] px-2 py-0.5 rounded bg-blue-900/50 text-blue-400 border border-blue-800">
+                        {selectedTaskData.project}
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-lg font-medium text-white mb-1">{selectedTaskData.title}</h3>
+                  <p className="text-xs text-gray-500">Created {formatTimeAgo(selectedTaskData.createdAt)}</p>
+                  {selectedTaskData.createdBy && (
+                    <p className="text-xs text-gray-600">By: {selectedTaskData.createdBy}</p>
+                  )}
+                </div>
+
+                {selectedTaskData.description && (
+                  <div className="mb-4">
+                    <h4 className="text-xs font-medium text-gray-400 mb-1">Description</h4>
+                    <p className="text-sm text-gray-300">{selectedTaskData.description}</p>
+                  </div>
+                )}
+
+                {selectedTaskData.instructions && selectedTaskData.instructions.length > 0 && (
+                  <div className="mb-4">
+                    <h4 className="text-xs font-medium text-gray-400 mb-2">Instructions</h4>
+                    <ol className="list-decimal list-inside space-y-2 text-sm text-gray-300">
+                      {selectedTaskData.instructions.map((inst: string, idx: number) => (
+                        <li key={idx} className="leading-relaxed">{inst}</li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-2 mt-6">
+                  <button
+                    onClick={() => {
+                      updateTask(selectedTaskData.id, { status: 'completed' });
+                      setSelectedTask(null);
+                    }}
+                    className="w-full px-4 py-2 bg-green-900/30 hover:bg-green-900/50 text-green-500 border border-green-900 rounded font-medium text-sm"
+                  >
+                    Mark as Complete
+                  </button>
+                  <button
+                    onClick={() => {
+                      updateTask(selectedTaskData.id, { status: 'dismissed' });
+                      setSelectedTask(null);
+                    }}
+                    className="w-full px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-400 border border-gray-700 rounded text-sm"
+                  >
+                    Dismiss Task
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Managers Panel */}
+        <motion.div
+          className="overflow-hidden border-r border-[var(--card-border)] bg-[var(--card)]/20 flex flex-col cursor-pointer"
+          animate={{
+            flex: getPanelFlex('managers'),
+            opacity: getPanelOpacity('managers')
+          }}
+          transition={{ duration: 0.3, ease: 'easeInOut' }}
+          onClick={() => setExpandedSection(expandedSection === 'managers' ? null : 'managers')}
+          style={{
+            borderColor: expandedSection === 'managers' ? 'rgba(0, 204, 136, 0.5)' : undefined
+          }}
+        >
+          <div className={`p-3 border-b border-[var(--card-border)] flex items-center justify-between transition-colors ${
+            expandedSection === 'managers' ? 'bg-[var(--neon-green)]/5' : ''
+          }`}>
+            <div className="flex items-center gap-2">
+              <Tooltip
+                content={
+                  <TooltipContent
+                    title="Managers"
+                    description="Long-running Opus agents that handle specific topics. Click to expand."
+                  />
+                }
+                position="bottom"
+              >
+                <h2 className={`font-medium text-sm transition-colors ${
+                  expandedSection === 'managers' ? 'text-[var(--neon-green)]' : 'text-white hover:text-[var(--neon-green)]'
+                }`}>
+                  Managers
+                </h2>
+              </Tooltip>
+              {status && status.managers.length > 0 && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-900/30 text-purple-400">
+                  {status.managers.length}
+                </span>
+              )}
+              {status && status.managers.filter(m => m.status === 'processing' || m.status === 'active').length > 0 && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-900/30 text-green-400">
+                  {status.managers.filter(m => m.status === 'processing' || m.status === 'active').length} active
+                </span>
+              )}
+            </div>
+            {expandedSection === 'managers' && (
+              <span className="text-[9px] text-gray-500">Click to collapse</span>
+            )}
+          </div>
+          <div className="flex-1 overflow-y-auto p-2">
+            {status && status.managers.length === 0 ? (
+              <div className="text-center py-6">
+                <div className="text-2xl mb-1 opacity-50">🤖</div>
+                <p className="text-gray-600 text-xs">No active managers</p>
+              </div>
+            ) : (
+              status?.managers.map((manager, i) => {
+                const isProcessing = manager.status === 'processing';
+                const isActive = manager.status === 'active';
+                const hasQueue = manager.messageQueue.length > 0;
+                const MANAGER_COLORS = [
+                  '#cc6688', '#66aa88', '#aa8866', '#8866aa', '#66aaaa',
+                  '#aaaa66', '#aa6666', '#6688aa', '#88aa66', '#aa66aa',
+                ];
+                const color = MANAGER_COLORS[i % MANAGER_COLORS.length];
+
+                return (
+                  <motion.div
+                    key={manager.id}
+                    className={`p-2 mb-2 border rounded bg-[var(--background)] transition-colors ${
+                      isProcessing ? 'border-blue-800 bg-blue-900/10' : isActive ? 'border-green-900/50' : 'border-[var(--card-border)]'
+                    }`}
+                    onClick={(e) => e.stopPropagation()}
+                    whileHover={{ scale: 1.01 }}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                        <div
+                          className="w-3 h-3 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: color }}
+                        />
+                        <span className="text-xs truncate font-medium text-white">
+                          {manager.name}
+                        </span>
+                        {isProcessing && <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />}
+                        {isActive && !isProcessing && <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {hasQueue && (
+                          <span className="text-[9px] px-1 py-0.5 rounded bg-yellow-900/50 text-yellow-500">
+                            {manager.messageQueue.length}
+                          </span>
+                        )}
+                        <span className={`text-[10px] ${
+                          isProcessing ? 'text-blue-400' : isActive ? 'text-green-500' : 'text-gray-500'
+                        }`}>
+                          {isProcessing ? '●' : isActive ? '●' : '○'}
+                        </span>
+                      </div>
+                    </div>
+                    {/* Show topics when expanded */}
+                    <AnimatePresence>
+                      {expandedSection === 'managers' && manager.topics && manager.topics.length > 0 && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="mt-1 pt-1 border-t border-[var(--card-border)]"
+                        >
+                          <div className="text-[9px] text-gray-500">
+                            Topics: {manager.topics.join(', ')}
+                          </div>
+                          {manager.currentTask && (
+                            <div className="text-[9px] text-blue-400 mt-0.5 truncate">
+                              Working on: {manager.currentTask}
+                            </div>
+                          )}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.div>
+                );
+              })
+            )}
+          </div>
         </motion.div>
 
         {/* Center: Projects Panel */}
         <motion.div
           className="overflow-hidden border-r border-[var(--card-border)] bg-[var(--card)]/20 flex flex-col cursor-pointer"
           animate={{
-            flex: expandedSection === 'projects' ? '2 1 0%' : expandedSection === 'claudes' || expandedSection === 'tasks' ? '0.5 1 0%' : '1 1 0%',
-            opacity: expandedSection && expandedSection !== 'projects' ? 0.7 : 1
+            flex: getPanelFlex('projects'),
+            opacity: getPanelOpacity('projects')
           }}
           transition={{ duration: 0.3, ease: 'easeInOut' }}
           onClick={() => setExpandedSection(expandedSection === 'projects' ? null : 'projects')}
@@ -670,8 +923,8 @@ export default function Dashboard() {
         <motion.div
           className="overflow-hidden border-r border-[var(--card-border)] flex flex-col"
           animate={{
-            flex: expandedSection === 'claudes' ? '2 1 0%' : expandedSection === 'projects' || expandedSection === 'tasks' ? '0.5 1 0%' : '1 1 0%',
-            opacity: expandedSection && expandedSection !== 'claudes' ? 0.7 : 1
+            flex: getPanelFlex('claudes'),
+            opacity: getPanelOpacity('claudes')
           }}
           transition={{ duration: 0.3, ease: 'easeInOut' }}
           style={{
@@ -693,8 +946,8 @@ export default function Dashboard() {
         <motion.div
           className="overflow-hidden bg-[var(--card)]/30 flex flex-col cursor-pointer"
           animate={{
-            flex: expandedSection === 'tasks' ? '2 1 0%' : expandedSection === 'projects' || expandedSection === 'claudes' ? '0.5 1 0%' : '1 1 0%',
-            opacity: expandedSection && expandedSection !== 'tasks' ? 0.7 : 1
+            flex: getPanelFlex('tasks'),
+            opacity: getPanelOpacity('tasks')
           }}
           transition={{ duration: 0.3, ease: 'easeInOut' }}
           onClick={() => setExpandedSection(expandedSection === 'tasks' ? null : 'tasks')}
@@ -753,8 +1006,10 @@ export default function Dashboard() {
               pendingTasks.map((task) => (
                 <motion.div
                   key={task.id}
-                  className={`border rounded p-2 bg-[var(--background)] ${
-                    task.priority === 'urgent'
+                  className={`border rounded p-2 bg-[var(--background)] cursor-pointer transition-all hover:border-[var(--neon-green)] ${
+                    selectedTask === task.id
+                      ? 'border-[var(--neon-green)] bg-[var(--neon-green)]/5'
+                      : task.priority === 'urgent'
                       ? 'border-red-900'
                       : task.priority === 'high'
                         ? 'border-yellow-900'
@@ -762,7 +1017,11 @@ export default function Dashboard() {
                   }`}
                   initial={{ opacity: 0, x: 10 }}
                   animate={{ opacity: 1, x: 0 }}
-                  onClick={(e) => e.stopPropagation()}
+                  whileHover={{ scale: 1.01 }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedTask(task.id);
+                  }}
                 >
                   <div className="flex items-start justify-between gap-1 mb-1">
                     <div className="flex-1 min-w-0">
@@ -779,53 +1038,50 @@ export default function Dashboard() {
                     </span>
                   </div>
 
-                  {task.description && (
-                    <p className="text-[10px] text-gray-500 mb-1.5 line-clamp-2">{task.description}</p>
+                  {task.description && !expandedSection && (
+                    <p className="text-[10px] text-gray-500 mb-1.5 line-clamp-1">{task.description}</p>
                   )}
 
-                  {/* Show more details when expanded */}
-                  <AnimatePresence>
-                    {expandedSection === 'tasks' && task.instructions && task.instructions.length > 0 && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="mb-2 p-2 bg-[var(--card)]/50 rounded text-[10px] text-gray-400"
-                      >
-                        <div className="font-medium text-gray-300 mb-1">Instructions:</div>
-                        <ul className="list-disc list-inside space-y-0.5">
-                          {task.instructions.map((inst: string, idx: number) => (
-                            <li key={idx}>{inst}</li>
-                          ))}
-                        </ul>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                  {/* Show description and buttons when expanded or selected */}
+                  {expandedSection === 'tasks' && (
+                    <>
+                      {task.description && (
+                        <p className="text-[10px] text-gray-500 mb-2 line-clamp-2">{task.description}</p>
+                      )}
 
-                  <div className="flex gap-1">
-                    <Tooltip content="Mark this task as completed - you've done what was requested" position="top">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          updateTask(task.id, { status: 'completed' });
-                        }}
-                        className="flex-1 px-2 py-1 bg-green-900/30 hover:bg-green-900/50 text-green-500 border border-green-900 rounded text-[10px] font-medium"
-                      >
-                        Done
-                      </button>
-                    </Tooltip>
-                    <Tooltip content="Dismiss this task - no longer needed or not applicable" position="top">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          updateTask(task.id, { status: 'dismissed' });
-                        }}
-                        className="px-2 py-1 bg-gray-800 hover:bg-gray-700 text-gray-400 rounded text-[10px]"
-                      >
-                        Skip
-                      </button>
-                    </Tooltip>
-                  </div>
+                      <div className="flex gap-1 mt-2">
+                        <Tooltip content="Mark this task as completed - you've done what was requested" position="top">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              updateTask(task.id, { status: 'completed' });
+                              if (selectedTask === task.id) setSelectedTask(null);
+                            }}
+                            className="flex-1 px-2 py-1 bg-green-900/30 hover:bg-green-900/50 text-green-500 border border-green-900 rounded text-[10px] font-medium"
+                          >
+                            Done
+                          </button>
+                        </Tooltip>
+                        <Tooltip content="Dismiss this task - no longer needed or not applicable" position="top">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              updateTask(task.id, { status: 'dismissed' });
+                              if (selectedTask === task.id) setSelectedTask(null);
+                            }}
+                            className="px-2 py-1 bg-gray-800 hover:bg-gray-700 text-gray-400 rounded text-[10px]"
+                          >
+                            Skip
+                          </button>
+                        </Tooltip>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Collapsed view - just show click hint */}
+                  {!expandedSection && (
+                    <div className="text-[9px] text-gray-600 mt-1">Click for details</div>
+                  )}
                 </motion.div>
               ))
             )}
@@ -845,6 +1101,8 @@ export default function Dashboard() {
           }}
         />
       )}
+
+      {/* Note: NightlyBuilds modal has its own backdrop handling */}
     </div>
   );
 }

@@ -142,3 +142,36 @@ export interface SystemEvent {
   timestamp: number;
   data?: Record<string, unknown>;
 }
+
+// Nightly Builds Configuration
+export interface NightlyBuildConfig {
+  enabled: boolean;
+  buildTime: string;      // 24h format "HH:MM" e.g. "03:00"
+  wakeUpTime: string;     // 24h format "HH:MM" e.g. "08:00"
+  model: 'sonnet' | 'haiku' | 'opus';
+  customPrompt: string;
+  lastRun?: string;       // ISO timestamp
+  nextRun?: string;       // ISO timestamp
+}
+
+// Nightly Build Briefing
+export interface NightlyBriefing {
+  id: string;
+  createdAt: string;
+  buildStartedAt: string;
+  buildCompletedAt: string;
+  model: string;
+  tldr: string;
+  summary: string;
+  changes: NightlyBuildChange[];
+  status: 'success' | 'partial' | 'failed';
+  error?: string;
+}
+
+export interface NightlyBuildChange {
+  type: 'improvement' | 'fix' | 'optimization' | 'cleanup' | 'scrape' | 'new_tool';
+  title: string;
+  description: string;
+  filesChanged?: string[];
+  project?: string;
+}

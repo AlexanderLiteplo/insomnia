@@ -27,6 +27,7 @@ interface ArchitectureTreeProps {
   expandedSection?: ExpandedSection;
   onSectionClick?: (section: ExpandedSection) => void;
   compactMode?: boolean;
+  hideManagers?: boolean;
 }
 
 // Activity event types for notifications
@@ -749,6 +750,7 @@ export function ArchitectureTree({
   expandedSection,
   onSectionClick,
   compactMode = false,
+  hideManagers = false,
 }: ArchitectureTreeProps) {
   // Track previous state for detecting changes
   const prevManagersRef = useRef<Manager[]>([]);
@@ -1169,7 +1171,7 @@ export function ArchitectureTree({
       </div>
 
       {/* Managers List - shown below in compact mode, or to the right otherwise */}
-      {!compactMode && (
+      {!compactMode && !hideManagers && (
         <>
           {/* Animated connector arrow when messages flow */}
           <div className="flex items-start pt-16 relative">
@@ -1222,54 +1224,56 @@ export function ArchitectureTree({
         </>
       )}
 
-      {/* Managers List */}
-      <div className={`flex flex-col ${compactMode ? 'flex-1 mt-3' : 'flex-shrink-0'}`}>
-        <div className="flex items-center gap-2 mb-2">
-          <Tooltip
-            content={
-              <TooltipContent
-                title="Manager Agents"
-                description="Long-running Opus agents that handle specific topics."
-              />
-            }
-            position="bottom"
-          >
-            <h3 className="font-medium text-sm text-white">
-              Managers
-            </h3>
-          </Tooltip>
-          <span className="text-[9px] text-gray-500 bg-[var(--card)] px-1.5 py-0.5 rounded">
-            {managers.length}
-          </span>
-          {activeManagers.length > 0 && (
-            <span className="text-[9px] text-green-600 bg-green-900/30 px-1.5 py-0.5 rounded">
-              {activeManagers.length} active
+      {/* Managers List - only show if not hidden */}
+      {!hideManagers && (
+        <div className={`flex flex-col ${compactMode ? 'flex-1 mt-3' : 'flex-shrink-0'}`}>
+          <div className="flex items-center gap-2 mb-2">
+            <Tooltip
+              content={
+                <TooltipContent
+                  title="Manager Agents"
+                  description="Long-running Opus agents that handle specific topics."
+                />
+              }
+              position="bottom"
+            >
+              <h3 className="font-medium text-sm text-white">
+                Managers
+              </h3>
+            </Tooltip>
+            <span className="text-[9px] text-gray-500 bg-[var(--card)] px-1.5 py-0.5 rounded">
+              {managers.length}
             </span>
-          )}
-        </div>
+            {activeManagers.length > 0 && (
+              <span className="text-[9px] text-green-600 bg-green-900/30 px-1.5 py-0.5 rounded">
+                {activeManagers.length} active
+              </span>
+            )}
+          </div>
 
-        <div className="flex-1 overflow-y-auto bg-[var(--card)] border border-[var(--card-border)] rounded-lg p-1.5">
-          <AnimatePresence>
-            {displayManagers.map((manager, i) => (
-              <ManagerRow
-                key={manager.id}
-                manager={manager}
-                color={MANAGER_COLORS[i % MANAGER_COLORS.length]}
-                index={i}
-                isNew={newManagerIds.has(manager.id)}
-                hasNewMessage={messageReceivedIds.has(manager.id)}
-                queueChanged={queueChangedIds.has(manager.id)}
-              />
-            ))}
-          </AnimatePresence>
+          <div className="flex-1 overflow-y-auto bg-[var(--card)] border border-[var(--card-border)] rounded-lg p-1.5">
+            <AnimatePresence>
+              {displayManagers.map((manager, i) => (
+                <ManagerRow
+                  key={manager.id}
+                  manager={manager}
+                  color={MANAGER_COLORS[i % MANAGER_COLORS.length]}
+                  index={i}
+                  isNew={newManagerIds.has(manager.id)}
+                  hasNewMessage={messageReceivedIds.has(manager.id)}
+                  queueChanged={queueChangedIds.has(manager.id)}
+                />
+              ))}
+            </AnimatePresence>
 
-          {idleManagers.length > 10 - activeManagers.length && (
-            <div className="text-[9px] text-gray-600 py-1.5 text-center">
-              +{idleManagers.length - (10 - activeManagers.length)} more idle
-            </div>
-          )}
+            {idleManagers.length > 10 - activeManagers.length && (
+              <div className="text-[9px] text-gray-600 py-1.5 text-center">
+                +{idleManagers.length - (10 - activeManagers.length)} more idle
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
