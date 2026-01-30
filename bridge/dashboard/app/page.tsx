@@ -7,6 +7,7 @@ import { ArchitectureTree } from '../components/diagram/ArchitectureTree';
 import { DonutAnimation } from '../components/ascii/DonutAnimation';
 import { ModelSelector } from '../components/ModelSelector';
 import { AgentSpawner } from '../components/AgentSpawner';
+import { ClaudesPanel } from '../components/ClaudesPanel';
 import { Tooltip, TooltipContent } from '../components/ui/Tooltip';
 
 // CSRF token management
@@ -102,6 +103,7 @@ export default function Dashboard() {
   const [showHealth, setShowHealth] = useState(false);
   const [showModels, setShowModels] = useState(false);
   const [showSpawner, setShowSpawner] = useState(false);
+  const [showClaudes, setShowClaudes] = useState(false);
   const [isHealing, setIsHealing] = useState(false);
   const [healStatus, setHealStatus] = useState<string | null>(null);
 
@@ -312,17 +314,22 @@ export default function Dashboard() {
             content={
               <TooltipContent
                 title="Active Claude Processes"
-                description="Number of Claude Code processes currently running on this machine, including managers, workers, and subagents"
+                description="Click to view and manage running Claude Code processes - see their status, resource usage, pause, resume, or terminate them"
               />
             }
             position="bottom"
           >
-            <div className="bg-[var(--card)] border border-[var(--card-border)] rounded px-3 py-1.5 text-center">
+            <button
+              onClick={() => setShowClaudes(!showClaudes)}
+              className={`bg-[var(--card)] border rounded px-3 py-1.5 text-center cursor-pointer hover:border-gray-600 transition-colors ${
+                showClaudes ? 'border-[var(--neon-green)]/50' : 'border-[var(--card-border)]'
+              }`}
+            >
               <div className="text-lg font-medium text-[var(--neon-green)]">
                 {status?.claudeProcesses ?? 0}
               </div>
               <div className="text-[9px] text-gray-500">Claudes</div>
-            </div>
+            </button>
           </Tooltip>
 
           <Tooltip
@@ -533,7 +540,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Main Content: Architecture Tree + Human Tasks */}
+      {/* Main Content: Architecture Tree + Claudes Panel + Human Tasks */}
       <div className="flex-1 flex min-h-0">
         {/* Architecture Tree - Takes most of the space */}
         <div className="flex-1 min-w-0 overflow-hidden">
@@ -547,6 +554,25 @@ export default function Dashboard() {
             />
           )}
         </div>
+
+        {/* Claudes Panel - Right side, toggleable */}
+        <AnimatePresence>
+          {showClaudes && status && (
+            <motion.div
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: 320, opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <ClaudesPanel
+                processes={status.claudeProcessDetails || []}
+                onRefresh={fetchStatus}
+                getCsrfToken={getCsrfToken}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Human Tasks Panel - Right side */}
         <div className="w-72 flex-shrink-0 border-l border-[var(--card-border)] bg-[var(--card)]/30 flex flex-col">

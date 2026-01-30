@@ -59,6 +59,18 @@ export interface OrchestratorStatus {
   managerPid: number | null;
 }
 
+// Claude process interface
+export interface ClaudeProcess {
+  pid: number;
+  cpu: number;
+  memory: number;
+  runtime: string;
+  command: string;
+  status: 'running' | 'paused';
+  workingDir?: string;
+  prompt?: string;
+}
+
 // System status interface
 export interface SystemStatus {
   bridge: BridgeStatus;
@@ -66,6 +78,7 @@ export interface SystemStatus {
   projects: Project[];
   orchestrator?: OrchestratorStatus;
   claudeProcesses: number;
+  claudeProcessDetails: ClaudeProcess[];
   lastUpdated: string;
 }
 

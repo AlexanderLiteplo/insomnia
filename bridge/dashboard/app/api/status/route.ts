@@ -134,6 +134,88 @@ function getManagers() {
   }
 }
 
+interface ClaudeProcess {
+  pid: number;
+  cpu: number;
+  memory: number;
+  runtime: string;
+  command: string;
+  status: 'running' | 'paused';
+  workingDir?: string;
+  prompt?: string;
+}
+
+function getClaudeProcessDetails(): ClaudeProcess[] {
+  const processes: ClaudeProcess[] = [];
+
+  try {
+    // Get detailed process info for Claude CLI processes
+    // Use ps with custom format to get PID, CPU, MEM, ELAPSED, and COMMAND
+    const result = execSync(
+      `ps -eo pid,pcpu,pmem,etime,stat,args | grep -E "\\bclaude\\s+(--|\\-p|$)" | grep -v grep`,
+      {
+        encoding: 'utf8',
+        timeout: 5000,
+      }
+    );
+
+    const lines = result.trim().split('\n').filter(l => l.trim());
+
+    for (const line of lines) {
+      // Parse the ps output: PID %CPU %MEM ELAPSED STAT COMMAND
+      const parts = line.trim().split(/\s+/);
+      if (parts.length < 6) continue;
+
+      const pid = parseInt(parts[0]);
+      const cpu = parseFloat(parts[1]) || 0;
+      const memory = parseFloat(parts[2]) || 0;
+      const runtime = parts[3]; // Format like 00:05:23 or 1-02:03:04
+      const stat = parts[4];
+      const command = parts.slice(5).join(' ');
+
+      // Determine if process is paused (T = stopped, S = sleeping)
+      const status: 'running' | 'paused' = stat.includes('T') ? 'paused' : 'running';
+
+      // Extract prompt from command if present (-p flag)
+      let prompt: string | undefined;
+      const promptMatch = command.match(/-p\s+["']([^"']+)["']|-p\s+(\S+)/);
+      if (promptMatch) {
+        prompt = (promptMatch[1] || promptMatch[2] || '').substring(0, 100);
+      }
+
+      // Try to get working directory for the process
+      let workingDir: string | undefined;
+      try {
+        const cwdResult = execSync(`lsof -p ${pid} 2>/dev/null | grep cwd | awk '{print $NF}'`, {
+          encoding: 'utf8',
+          timeout: 2000,
+        });
+        workingDir = cwdResult.trim() || undefined;
+      } catch {
+        // Ignore errors getting working directory
+      }
+
+      processes.push({
+        pid,
+        cpu,
+        memory,
+        runtime,
+        command: command.substring(0, 200),
+        status,
+        workingDir,
+        prompt,
+      });
+    }
+  } catch {
+    // No Claude processes running
+  }
+
+  // Sort by CPU usage descending
+  processes.sort((a, b) => b.cpu - a.cpu);
+
+  return processes;
+}
+
 function getClaudeProcessCount(): number {
   try {
     // Count actual claude CLI processes (not paths containing "claude")
@@ -286,12 +368,15 @@ export async function GET(request: Request) {
     return auth.error;
   }
 
+  const claudeProcessDetails = getClaudeProcessDetails();
+
   const status = {
     bridge: getBridgeStatus(),
     managers: getManagers(),
     projects: getProjects(),
     orchestrator: getOrchestratorStatus(),
-    claudeProcesses: getClaudeProcessCount(),
+    claudeProcesses: claudeProcessDetails.length,
+    claudeProcessDetails,
     lastUpdated: new Date().toISOString(),
   };
 
