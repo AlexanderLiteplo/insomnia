@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { authenticateRequest, authenticateReadRequest } from '../../lib/auth';
 
-const BRIDGE_DIR = process.env.BRIDGE_DIR || path.join(process.env.HOME || '', 'claude-automation-system', 'bridge');
+const BRIDGE_DIR = process.env.BRIDGE_DIR || path.join(process.env.HOME || '', 'Documents', 'insomnia', 'bridge');
 const CONFIG_PATH = path.join(BRIDGE_DIR, 'config.json');
 
 // Valid Claude models

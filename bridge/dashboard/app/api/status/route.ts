@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { authenticateReadRequest } from '../../lib/auth';
 
-const BRIDGE_DIR = process.env.BRIDGE_DIR || path.join(process.env.HOME || '', 'claude-automation-system', 'bridge');
+const BRIDGE_DIR = process.env.BRIDGE_DIR || path.join(process.env.HOME || '', 'Documents', 'insomnia', 'bridge');
 const MANAGER_REGISTRY = path.join(BRIDGE_DIR, '.manager-registry.json');
 const ORCHESTRATOR_DIR = process.env.ORCHESTRATOR_DIR || path.join(BRIDGE_DIR, '..', 'orchestrator');
 const PROJECTS_DIR = path.join(ORCHESTRATOR_DIR, 'projects');

@@ -3,7 +3,7 @@ import { execSync } from 'child_process';
 import * as path from 'path';
 import { authenticateRequest, checkRateLimit, getRateLimitIdentifier } from '../../../lib/auth';
 
-const ORCHESTRATOR_DIR = path.join(process.env.HOME || '', 'claude-automation-system', 'orchestrator');
+const ORCHESTRATOR_DIR = path.join(process.env.HOME || '', 'Documents', 'insomnia', 'orchestrator');
 
 export async function POST(request: Request) {
   // Rate limiting check first

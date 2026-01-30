@@ -247,13 +247,13 @@ async function main(): Promise<void> {
         }
       } catch {
         print('⚠️  Bridge may not have started. Check logs with:');
-        print('   tail -f ~/claude-automation-system/bridge/bridge.log');
+        print('   tail -f ~/Documents/insomnia/bridge/bridge.log');
       }
     } catch (err: any) {
       print(`❌ Failed to start bridge: ${err.message}`);
       print('');
       print('You can start it manually with:');
-      print('   cd ~/claude-automation-system/bridge && npm start');
+      print('   cd ~/Documents/insomnia/bridge && npm start');
     }
   }
 
@@ -275,7 +275,7 @@ async function main(): Promise<void> {
   print('╚═══════════════════════════════════════════════════════════════╝');
   print('');
   print('📊 Monitor your system at the Claude Dashboard:');
-  print('   cd ~/claude-automation-system/bridge/dashboard && npm run dev');
+  print('   cd ~/Documents/insomnia/bridge/dashboard && npm run dev');
   print('');
 
   rl.close();

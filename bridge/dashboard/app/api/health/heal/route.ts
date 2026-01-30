@@ -48,7 +48,7 @@ function generateHealPrompt(health: HealthStatus): string {
 **You must ONLY work within the Insomnia project directory: ${INSOMNIA_ROOT}**
 
 - DO NOT modify, read, or access any files outside of ${INSOMNIA_ROOT}
-- DO NOT access ~/claude-automation-system/ or any archived directories
+- DO NOT access ~/Documents/insomnia/ or any archived directories
 - The ONLY valid working directories are:
   - ${INSOMNIA_ROOT} (project root)
   - ${BRIDGE_DIR} (bridge)

@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { authenticateRequest, authenticateReadRequest } from '../../lib/auth';
 
-const BRIDGE_DIR = process.env.BRIDGE_DIR || path.join(process.env.HOME || '', 'claude-automation-system', 'bridge');
+const BRIDGE_DIR = process.env.BRIDGE_DIR || path.join(process.env.HOME || '', 'Documents', 'insomnia', 'bridge');
 const CONFIG_PATH = path.join(BRIDGE_DIR, '.nightly-builds.json');
 const BRIEFINGS_PATH = path.join(BRIDGE_DIR, '.nightly-briefings.json');
 
@@ -253,8 +253,8 @@ Include in briefing:
 Fetch top ${config.priorityTasks.maxTasks} priority tasks from: ${config.priorityTasks.sources.join(', ')}
 
 Steps:
-1. For orchestrator: Read ~/claude-automation-system/orchestrator/prds/tasks.json - find tasks with status "pending" or "in_progress", prioritize by phase
-2. For human-tasks: Read ~/claude-automation-system/bridge/.human-tasks.json - filter by status="pending", sort by priority (urgent > high > medium > low)
+1. For orchestrator: Read ~/Documents/insomnia/orchestrator/prds/tasks.json - find tasks with status "pending" or "in_progress", prioritize by phase
+2. For human-tasks: Read ~/Documents/insomnia/bridge/.human-tasks.json - filter by status="pending", sort by priority (urgent > high > medium > low)
 3. For github-issues: Use 'gh issue list --state open --limit 10' to fetch open issues, prioritize by labels
 
 Collect the top ${config.priorityTasks.maxTasks} highest priority tasks across all sources.
@@ -269,7 +269,7 @@ After fetching priority tasks, distribute them across managers using the ${confi
 Maximum managers to spawn: ${config.managerDistribution.maxManagersToSpawn}
 
 Steps:
-1. Read the manager registry from ~/claude-automation-system/bridge/.manager-registry.json
+1. Read the manager registry from ~/Documents/insomnia/bridge/.manager-registry.json
 2. Match tasks to existing managers based on topics/skills, or create new managers for unmatched tasks
 3. For each task assignment, spawn a new Claude agent as a manager:
 
