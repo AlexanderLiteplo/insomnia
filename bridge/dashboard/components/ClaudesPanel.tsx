@@ -28,23 +28,61 @@ function formatRuntime(runtime: string): string {
 }
 
 function getProcessLabel(process: ClaudeProcess): string {
-  // Try to determine what this process is doing based on command/workingDir
+  // Try to determine what this process is doing based on command/workingDir/prompt
   const cmd = process.command.toLowerCase();
 
-  if (cmd.includes('telegram-manager')) return 'Manager';
-  if (cmd.includes('worker') || cmd.includes('orchestrator')) return 'Worker';
-  if (cmd.includes('responder')) return 'Responder';
+  // Check for known system components
+  if (cmd.includes('telegram-manager')) return 'Telegram Manager';
+  if (cmd.includes('worker') || cmd.includes('orchestrator')) return 'Orchestrator Worker';
+  if (cmd.includes('responder')) return 'Message Responder';
+
+  // If there's a prompt, show a meaningful portion
   if (process.prompt) {
-    // Truncate and show first few words of prompt
-    const words = process.prompt.split(' ').slice(0, 4).join(' ');
-    return words.length < process.prompt.length ? words + '...' : process.prompt;
+    // Try to extract the key action/task from the prompt
+    const prompt = process.prompt.trim();
+
+    // Look for common patterns like "help me...", "can you...", etc.
+    const patterns = [
+      /(?:help me |can you |please |could you )(.+?)(?:\.|$)/i,
+      /^(.{0,50})/  // fallback: first 50 chars
+    ];
+
+    for (const pattern of patterns) {
+      const match = prompt.match(pattern);
+      if (match) {
+        const text = match[1] || match[0];
+        // Capitalize first letter
+        const formatted = text.charAt(0).toUpperCase() + text.slice(1);
+        return formatted.length > 50 ? formatted.substring(0, 47) + '...' : formatted;
+      }
+    }
   }
+
+  // If working in a specific directory, show the context
   if (process.workingDir) {
-    // Show last folder name
     const parts = process.workingDir.split('/');
-    return parts[parts.length - 1] || 'Claude';
+    const dirName = parts[parts.length - 1];
+
+    // Skip generic names like "Desktop", "Documents", username
+    const genericNames = ['desktop', 'documents', 'downloads', 'home'];
+    if (dirName && !genericNames.includes(dirName.toLowerCase()) && dirName !== parts[parts.length - 2]) {
+      // Check if it looks like a project directory
+      if (dirName.includes('-') || dirName.includes('_')) {
+        return `Working on ${dirName}`;
+      }
+      return dirName;
+    }
+
+    // Try parent directory
+    if (parts.length > 1) {
+      const parentDir = parts[parts.length - 2];
+      if (parentDir && !genericNames.includes(parentDir.toLowerCase())) {
+        return parentDir;
+      }
+    }
   }
-  return 'Claude Agent';
+
+  return 'Claude Code Session';
 }
 
 function CpuIndicator({ cpu }: { cpu: number }) {
@@ -177,7 +215,7 @@ export function ClaudesPanel({ processes, onRefresh, getCsrfToken }: ClaudesPane
                 className="p-2 cursor-pointer hover:bg-[var(--card-border)]/20 transition-colors"
                 onClick={() => setExpandedPid(expandedPid === process.pid ? null : process.pid)}
               >
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center justify-between gap-2 mb-1">
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     {/* Status indicator */}
                     <div
@@ -189,7 +227,7 @@ export function ClaudesPanel({ processes, onRefresh, getCsrfToken }: ClaudesPane
                             : 'bg-green-500'
                       }`}
                     />
-                    <span className="text-xs text-white truncate">
+                    <span className="text-xs text-white truncate font-medium">
                       {getProcessLabel(process)}
                     </span>
                   </div>
@@ -203,6 +241,29 @@ export function ClaudesPanel({ processes, onRefresh, getCsrfToken }: ClaudesPane
                     </span>
                   </div>
                 </div>
+                {/* Secondary info line */}
+                {(process.workingDir || process.prompt) && (
+                  <div className="flex items-center gap-2 ml-4 text-[9px] text-gray-500">
+                    {process.workingDir && (
+                      <Tooltip content={process.workingDir} position="top">
+                        <div className="truncate flex items-center gap-1">
+                          <span>📁</span>
+                          <span className="truncate">
+                            {process.workingDir.split('/').slice(-2).join('/')}
+                          </span>
+                        </div>
+                      </Tooltip>
+                    )}
+                    {process.prompt && (
+                      <Tooltip content={process.prompt} position="top">
+                        <div className="truncate flex-1">
+                          💬 {process.prompt.substring(0, 40)}
+                          {process.prompt.length > 40 ? '...' : ''}
+                        </div>
+                      </Tooltip>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Expanded view */}

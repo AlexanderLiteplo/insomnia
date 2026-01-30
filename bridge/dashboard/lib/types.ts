@@ -71,6 +71,14 @@ export interface ClaudeProcess {
   prompt?: string;
 }
 
+// Model configuration interface
+export interface ModelConfig {
+  responder: 'sonnet' | 'haiku' | 'opus';
+  defaultManager: 'sonnet' | 'haiku' | 'opus';
+  orchestratorWorker: 'sonnet' | 'haiku' | 'opus';
+  orchestratorManager: 'sonnet' | 'haiku' | 'opus';
+}
+
 // System status interface
 export interface SystemStatus {
   bridge: BridgeStatus;
@@ -79,6 +87,7 @@ export interface SystemStatus {
   orchestrator?: OrchestratorStatus;
   claudeProcesses: number;
   claudeProcessDetails: ClaudeProcess[];
+  models: ModelConfig;
   lastUpdated: string;
 }
 
@@ -101,4 +110,21 @@ export interface ConnectionProps {
   animated?: boolean;
   color?: string;
   label?: string;
+}
+
+// Event types for animations
+export type SystemEventType =
+  | 'message_received'
+  | 'manager_created'
+  | 'manager_processing'
+  | 'orchestrator_spawned'
+  | 'task_completed'
+  | 'queue_updated';
+
+export interface SystemEvent {
+  id: string;
+  type: SystemEventType;
+  targetId?: string;  // Manager ID, project name, etc.
+  timestamp: number;
+  data?: Record<string, unknown>;
 }

@@ -8,6 +8,7 @@ const BRIDGE_DIR = process.env.BRIDGE_DIR || path.join(process.env.HOME || '', '
 const MANAGER_REGISTRY = path.join(BRIDGE_DIR, '.manager-registry.json');
 const ORCHESTRATOR_DIR = process.env.ORCHESTRATOR_DIR || path.join(BRIDGE_DIR, '..', 'orchestrator');
 const PROJECTS_DIR = path.join(ORCHESTRATOR_DIR, 'projects');
+const CONFIG_PATH = path.join(BRIDGE_DIR, 'config.json');
 
 interface TelegramBridgeStatus {
   running: boolean;
@@ -176,11 +177,37 @@ function getClaudeProcessDetails(): ClaudeProcess[] {
       // Determine if process is paused (T = stopped, S = sleeping)
       const status: 'running' | 'paused' = stat.includes('T') ? 'paused' : 'running';
 
-      // Extract prompt from command if present (-p flag)
+      // Extract prompt from command if present (-p flag or positional arg after --)
       let prompt: string | undefined;
-      const promptMatch = command.match(/-p\s+["']([^"']+)["']|-p\s+(\S+)/);
+
+      // Try -p flag first (both quoted and unquoted)
+      const promptMatch = command.match(/-p\s+["']([^"']+)["']|-p\s+([^\s-]+)/);
       if (promptMatch) {
-        prompt = (promptMatch[1] || promptMatch[2] || '').substring(0, 100);
+        prompt = (promptMatch[1] || promptMatch[2] || '').substring(0, 200);
+      }
+
+      // If no -p flag, look for content after -- (common pattern: claude -- "prompt")
+      if (!prompt) {
+        const ddMatch = command.match(/--\s+["']([^"']+)["']|--\s+([^\s]+)/);
+        if (ddMatch) {
+          prompt = (ddMatch[1] || ddMatch[2] || '').substring(0, 200);
+        }
+      }
+
+      // If still no prompt, check for common phrases in the command itself
+      if (!prompt) {
+        const phrases = ['help', 'fix', 'add', 'create', 'update', 'debug', 'build', 'test'];
+        for (const phrase of phrases) {
+          if (command.toLowerCase().includes(phrase)) {
+            // Extract surrounding context
+            const idx = command.toLowerCase().indexOf(phrase);
+            const context = command.substring(Math.max(0, idx), Math.min(command.length, idx + 100));
+            if (context.length > 10) {
+              prompt = context.trim();
+              break;
+            }
+          }
+        }
       }
 
       // Try to get working directory for the process
@@ -361,6 +388,31 @@ function getProjects(): Project[] {
   return projects;
 }
 
+function getModelConfig() {
+  const defaultModels = {
+    responder: 'haiku' as const,
+    defaultManager: 'opus' as const,
+    orchestratorWorker: 'opus' as const,
+    orchestratorManager: 'opus' as const,
+  };
+
+  if (!fs.existsSync(CONFIG_PATH)) {
+    return defaultModels;
+  }
+
+  try {
+    const config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+    return {
+      responder: config.models?.responder || defaultModels.responder,
+      defaultManager: config.models?.defaultManager || defaultModels.defaultManager,
+      orchestratorWorker: config.models?.orchestratorWorker || defaultModels.orchestratorWorker,
+      orchestratorManager: config.models?.orchestratorManager || defaultModels.orchestratorManager,
+    };
+  } catch {
+    return defaultModels;
+  }
+}
+
 export async function GET(request: Request) {
   // Authenticate the request (read-only, more permissive)
   const auth = authenticateReadRequest(request);
@@ -377,6 +429,7 @@ export async function GET(request: Request) {
     orchestrator: getOrchestratorStatus(),
     claudeProcesses: claudeProcessDetails.length,
     claudeProcessDetails,
+    models: getModelConfig(),
     lastUpdated: new Date().toISOString(),
   };
 

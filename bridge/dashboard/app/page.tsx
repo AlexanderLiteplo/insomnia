@@ -551,6 +551,7 @@ export default function Dashboard() {
               projects={status.projects}
               orchestrator={status.orchestrator}
               responderActive={status.managers.some(m => m.status === 'processing')}
+              models={status.models}
             />
           )}
         </div>
