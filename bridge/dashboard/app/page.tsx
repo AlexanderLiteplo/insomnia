@@ -10,6 +10,9 @@ import { AgentSpawner } from '../components/AgentSpawner';
 import { ClaudesPanel } from '../components/ClaudesPanel';
 import { Tooltip, TooltipContent } from '../components/ui/Tooltip';
 
+// Section expansion types - now includes 'tasks' for the horizontal grid layout
+type ExpandedSection = 'managers' | 'projects' | 'claudes' | 'tasks' | null;
+
 // CSRF token management
 let csrfToken: string | null = null;
 let csrfTokenPromise: Promise<string> | null = null;
@@ -103,7 +106,7 @@ export default function Dashboard() {
   const [showHealth, setShowHealth] = useState(false);
   const [showModels, setShowModels] = useState(false);
   const [showSpawner, setShowSpawner] = useState(false);
-  const [showClaudes, setShowClaudes] = useState(false);
+  const [expandedSection, setExpandedSection] = useState<ExpandedSection>(null);
   const [isHealing, setIsHealing] = useState(false);
   const [healStatus, setHealStatus] = useState<string | null>(null);
 
@@ -307,28 +310,6 @@ export default function Dashboard() {
             >
               <div className="text-lg font-bold text-[var(--neon-green)]">+</div>
               <div className="text-[9px] text-gray-500">Spawn</div>
-            </button>
-          </Tooltip>
-
-          <Tooltip
-            content={
-              <TooltipContent
-                title="Active Claude Processes"
-                description="Click to view and manage running Claude Code processes - see their status, resource usage, pause, resume, or terminate them"
-              />
-            }
-            position="bottom"
-          >
-            <button
-              onClick={() => setShowClaudes(!showClaudes)}
-              className={`bg-[var(--card)] border rounded px-3 py-1.5 text-center cursor-pointer hover:border-gray-600 transition-colors ${
-                showClaudes ? 'border-[var(--neon-green)]/50' : 'border-[var(--card-border)]'
-              }`}
-            >
-              <div className="text-lg font-medium text-[var(--neon-green)]">
-                {status?.claudeProcesses ?? 0}
-              </div>
-              <div className="text-[9px] text-gray-500">Claudes</div>
             </button>
           </Tooltip>
 
@@ -540,10 +521,17 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Main Content: Architecture Tree + Claudes Panel + Human Tasks */}
+      {/* Main Content: Horizontal Grid Layout - Projects | Claudes | Tasks */}
       <div className="flex-1 flex min-h-0">
-        {/* Architecture Tree - Takes most of the space */}
-        <div className="flex-1 min-w-0 overflow-hidden">
+        {/* Left Column: System Architecture (Bridge, Responder, Orchestrator, Managers) */}
+        <motion.div
+          className="flex-shrink-0 overflow-hidden border-r border-[var(--card-border)]"
+          animate={{
+            width: expandedSection ? 200 : 280,
+            opacity: expandedSection ? 0.85 : 1
+          }}
+          transition={{ duration: 0.3, ease: 'easeInOut' }}
+        >
           {status && (
             <ArchitectureTree
               bridge={status.bridge}
@@ -552,32 +540,171 @@ export default function Dashboard() {
               orchestrator={status.orchestrator}
               responderActive={status.managers.some(m => m.status === 'processing')}
               models={status.models}
+              expandedSection={expandedSection}
+              onSectionClick={setExpandedSection}
+              compactMode={!!expandedSection}
             />
           )}
-        </div>
+        </motion.div>
 
-        {/* Claudes Panel - Right side, toggleable */}
-        <AnimatePresence>
-          {showClaudes && status && (
-            <motion.div
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 320, opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="overflow-hidden"
-            >
-              <ClaudesPanel
-                processes={status.claudeProcessDetails || []}
-                onRefresh={fetchStatus}
-                getCsrfToken={getCsrfToken}
-              />
-            </motion.div>
+        {/* Center: Projects Panel */}
+        <motion.div
+          className="overflow-hidden border-r border-[var(--card-border)] bg-[var(--card)]/20 flex flex-col cursor-pointer"
+          animate={{
+            flex: expandedSection === 'projects' ? '2 1 0%' : expandedSection === 'claudes' || expandedSection === 'tasks' ? '0.5 1 0%' : '1 1 0%',
+            opacity: expandedSection && expandedSection !== 'projects' ? 0.7 : 1
+          }}
+          transition={{ duration: 0.3, ease: 'easeInOut' }}
+          onClick={() => setExpandedSection(expandedSection === 'projects' ? null : 'projects')}
+          style={{
+            borderColor: expandedSection === 'projects' ? 'rgba(0, 204, 136, 0.5)' : undefined
+          }}
+        >
+          <div className={`p-3 border-b border-[var(--card-border)] flex items-center justify-between transition-colors ${
+            expandedSection === 'projects' ? 'bg-[var(--neon-green)]/5' : ''
+          }`}>
+            <div className="flex items-center gap-2">
+              <Tooltip
+                content={
+                  <TooltipContent
+                    title="Projects"
+                    description="Active projects being built by the orchestrator system. Click to expand."
+                  />
+                }
+                position="bottom"
+              >
+                <h2 className={`font-medium text-sm transition-colors ${
+                  expandedSection === 'projects' ? 'text-[var(--neon-green)]' : 'text-white hover:text-[var(--neon-green)]'
+                }`}>
+                  Projects
+                </h2>
+              </Tooltip>
+              {status && status.projects.length > 0 && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-900/30 text-blue-400">
+                  {status.projects.length}
+                </span>
+              )}
+            </div>
+            {expandedSection === 'projects' && (
+              <span className="text-[9px] text-gray-500">Click to collapse</span>
+            )}
+          </div>
+          <div className="flex-1 overflow-y-auto p-2">
+            {status && status.projects.length === 0 ? (
+              <div className="text-center py-6">
+                <div className="text-2xl mb-1 opacity-50">📁</div>
+                <p className="text-gray-600 text-xs">No active projects</p>
+              </div>
+            ) : (
+              status?.projects.map((project, i) => {
+                const percent = project.total > 0 ? Math.round((project.completed / project.total) * 100) : 0;
+                const isActive = project.status === 'active';
+                const isComplete = percent === 100;
+                return (
+                  <motion.div
+                    key={i}
+                    className={`p-2 mb-2 border rounded bg-[var(--background)] transition-colors ${
+                      isActive ? 'border-blue-800 bg-blue-900/10' : isComplete ? 'border-green-900/50' : 'border-[var(--card-border)]'
+                    }`}
+                    onClick={(e) => e.stopPropagation()}
+                    whileHover={{ scale: 1.01 }}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                        <span className={`text-xs truncate font-medium ${isComplete ? 'text-green-400' : 'text-white'}`}>
+                          {project.name}
+                        </span>
+                        {isActive && <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />}
+                        {isComplete && <span className="text-[9px] text-green-500">✓</span>}
+                      </div>
+                      <span className="text-[10px] text-gray-500 ml-2">{percent}%</span>
+                    </div>
+                    <div className="w-full bg-gray-800 rounded h-1.5">
+                      <div
+                        className={`h-1.5 rounded transition-all ${
+                          isComplete ? 'bg-green-600' : isActive ? 'bg-blue-500' : 'bg-gray-600'
+                        }`}
+                        style={{ width: `${percent}%` }}
+                      />
+                    </div>
+                    <div className="text-[9px] text-gray-600 mt-1">
+                      {project.completed}/{project.total} tasks
+                    </div>
+                    {/* Show tasks when expanded */}
+                    <AnimatePresence>
+                      {expandedSection === 'projects' && project.tasks && project.tasks.length > 0 && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="mt-2 pt-2 border-t border-[var(--card-border)] space-y-1"
+                        >
+                          {project.tasks.slice(0, 5).map((task, j) => (
+                            <div key={j} className="flex items-center gap-2 text-[10px]">
+                              <span className={
+                                task.status === 'completed' ? 'text-green-500' :
+                                task.status === 'in_progress' ? 'text-blue-400' :
+                                task.status === 'worker_done' ? 'text-yellow-500' : 'text-gray-500'
+                              }>
+                                {task.status === 'completed' ? '✓' : task.status === 'in_progress' ? '●' : task.status === 'worker_done' ? '◐' : '○'}
+                              </span>
+                              <span className={task.status === 'completed' ? 'text-gray-500 line-through' : 'text-gray-300'}>
+                                {task.name}
+                              </span>
+                            </div>
+                          ))}
+                          {project.tasks.length > 5 && (
+                            <div className="text-[9px] text-gray-600">+{project.tasks.length - 5} more</div>
+                          )}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.div>
+                );
+              })
+            )}
+          </div>
+        </motion.div>
+
+        {/* Center-Right: Claudes Panel - Always visible */}
+        <motion.div
+          className="overflow-hidden border-r border-[var(--card-border)] flex flex-col"
+          animate={{
+            flex: expandedSection === 'claudes' ? '2 1 0%' : expandedSection === 'projects' || expandedSection === 'tasks' ? '0.5 1 0%' : '1 1 0%',
+            opacity: expandedSection && expandedSection !== 'claudes' ? 0.7 : 1
+          }}
+          transition={{ duration: 0.3, ease: 'easeInOut' }}
+          style={{
+            borderColor: expandedSection === 'claudes' ? 'rgba(0, 204, 136, 0.5)' : undefined
+          }}
+        >
+          {status && (
+            <ClaudesPanel
+              processes={status.claudeProcessDetails || []}
+              onRefresh={fetchStatus}
+              getCsrfToken={getCsrfToken}
+              isExpanded={expandedSection === 'claudes'}
+              onHeaderClick={() => setExpandedSection(expandedSection === 'claudes' ? null : 'claudes')}
+            />
           )}
-        </AnimatePresence>
+        </motion.div>
 
-        {/* Human Tasks Panel - Right side */}
-        <div className="w-72 flex-shrink-0 border-l border-[var(--card-border)] bg-[var(--card)]/30 flex flex-col">
-          <div className="p-3 border-b border-[var(--card-border)] flex items-center justify-between">
+        {/* Right: Human Tasks Panel */}
+        <motion.div
+          className="overflow-hidden bg-[var(--card)]/30 flex flex-col cursor-pointer"
+          animate={{
+            flex: expandedSection === 'tasks' ? '2 1 0%' : expandedSection === 'projects' || expandedSection === 'claudes' ? '0.5 1 0%' : '1 1 0%',
+            opacity: expandedSection && expandedSection !== 'tasks' ? 0.7 : 1
+          }}
+          transition={{ duration: 0.3, ease: 'easeInOut' }}
+          onClick={() => setExpandedSection(expandedSection === 'tasks' ? null : 'tasks')}
+          style={{
+            borderColor: expandedSection === 'tasks' ? 'rgba(0, 204, 136, 0.5)' : undefined
+          }}
+        >
+          <div className={`p-3 border-b border-[var(--card-border)] flex items-center justify-between transition-colors ${
+            expandedSection === 'tasks' ? 'bg-[var(--neon-green)]/5' : ''
+          }`}>
             <div className="flex items-center gap-2">
               <Tooltip
                 content={
@@ -588,7 +715,11 @@ export default function Dashboard() {
                 }
                 position="left"
               >
-                <h2 className="font-medium text-white text-sm cursor-help">Tasks</h2>
+                <h2 className={`font-medium text-sm transition-colors ${
+                  expandedSection === 'tasks' ? 'text-[var(--neon-green)]' : 'text-white hover:text-[var(--neon-green)]'
+                }`}>
+                  Human Tasks
+                </h2>
               </Tooltip>
               {pendingTasks.length > 0 && (
                 <Tooltip
@@ -607,6 +738,9 @@ export default function Dashboard() {
                 </Tooltip>
               )}
             </div>
+            {expandedSection === 'tasks' && (
+              <span className="text-[9px] text-gray-500">Click to collapse</span>
+            )}
           </div>
 
           <div className="flex-1 overflow-y-auto p-2 space-y-2">
@@ -628,6 +762,7 @@ export default function Dashboard() {
                   }`}
                   initial={{ opacity: 0, x: 10 }}
                   animate={{ opacity: 1, x: 0 }}
+                  onClick={(e) => e.stopPropagation()}
                 >
                   <div className="flex items-start justify-between gap-1 mb-1">
                     <div className="flex-1 min-w-0">
@@ -648,10 +783,32 @@ export default function Dashboard() {
                     <p className="text-[10px] text-gray-500 mb-1.5 line-clamp-2">{task.description}</p>
                   )}
 
+                  {/* Show more details when expanded */}
+                  <AnimatePresence>
+                    {expandedSection === 'tasks' && task.instructions && task.instructions.length > 0 && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="mb-2 p-2 bg-[var(--card)]/50 rounded text-[10px] text-gray-400"
+                      >
+                        <div className="font-medium text-gray-300 mb-1">Instructions:</div>
+                        <ul className="list-disc list-inside space-y-0.5">
+                          {task.instructions.map((inst: string, idx: number) => (
+                            <li key={idx}>{inst}</li>
+                          ))}
+                        </ul>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
                   <div className="flex gap-1">
                     <Tooltip content="Mark this task as completed - you've done what was requested" position="top">
                       <button
-                        onClick={() => updateTask(task.id, { status: 'completed' })}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          updateTask(task.id, { status: 'completed' });
+                        }}
                         className="flex-1 px-2 py-1 bg-green-900/30 hover:bg-green-900/50 text-green-500 border border-green-900 rounded text-[10px] font-medium"
                       >
                         Done
@@ -659,7 +816,10 @@ export default function Dashboard() {
                     </Tooltip>
                     <Tooltip content="Dismiss this task - no longer needed or not applicable" position="top">
                       <button
-                        onClick={() => updateTask(task.id, { status: 'dismissed' })}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          updateTask(task.id, { status: 'dismissed' });
+                        }}
                         className="px-2 py-1 bg-gray-800 hover:bg-gray-700 text-gray-400 rounded text-[10px]"
                       >
                         Skip
@@ -670,7 +830,7 @@ export default function Dashboard() {
               ))
             )}
           </div>
-        </div>
+        </motion.div>
       </div>
 
       {/* Click outside to close dropdowns */}

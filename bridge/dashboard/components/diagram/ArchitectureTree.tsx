@@ -14,6 +14,9 @@ interface OrchestratorStatus {
   managerPid?: number | null;
 }
 
+// Section expansion types
+type ExpandedSection = 'managers' | 'projects' | 'claudes' | 'tasks' | null;
+
 interface ArchitectureTreeProps {
   bridge: BridgeStatus;
   managers: Manager[];
@@ -21,6 +24,9 @@ interface ArchitectureTreeProps {
   orchestrator?: OrchestratorStatus;
   responderActive?: boolean;
   models: ModelConfig;
+  expandedSection?: ExpandedSection;
+  onSectionClick?: (section: ExpandedSection) => void;
+  compactMode?: boolean;
 }
 
 // Activity event types for notifications
@@ -740,6 +746,9 @@ export function ArchitectureTree({
   orchestrator,
   responderActive = false,
   models,
+  expandedSection,
+  onSectionClick,
+  compactMode = false,
 }: ArchitectureTreeProps) {
   // Track previous state for detecting changes
   const prevManagersRef = useRef<Manager[]>([]);
@@ -879,7 +888,7 @@ export function ArchitectureTree({
   const displayManagers = [...activeManagers, ...idleManagers.slice(0, Math.max(0, 10 - activeManagers.length))];
 
   return (
-    <div className="w-full h-full flex gap-4 p-4 overflow-hidden relative">
+    <div className={`w-full h-full flex ${compactMode ? 'flex-col' : 'flex-row gap-4'} p-4 overflow-hidden relative`}>
       {/* Screen flash overlay */}
       <ScreenFlash active={showScreenFlash} />
 
@@ -910,7 +919,7 @@ export function ArchitectureTree({
       </AnimatePresence>
 
       {/* Left Column: Bridge + Responder */}
-      <div className="flex flex-col gap-4 w-48 flex-shrink-0">
+      <div className={`flex flex-col gap-3 ${compactMode ? 'w-full' : 'w-48'} flex-shrink-0`}>
         {/* Bridge */}
         <Tooltip
           content={
@@ -1159,57 +1168,62 @@ export function ArchitectureTree({
         </Tooltip>
       </div>
 
-      {/* Animated connector arrow when messages flow */}
-      <div className="flex items-start pt-16 relative">
-        {/* Connection line with energy beam */}
-        <div className="flex items-center gap-1">
-          <div className={`relative h-0.5 w-8 rounded-full overflow-hidden ${
-            bridgeReceivedMessage ? 'bg-[var(--neon-green)]' : 'bg-gray-700'
-          }`}>
-            {bridgeReceivedMessage && (
-              <motion.div
-                className="absolute h-full w-4 rounded-full"
-                style={{
-                  background: 'linear-gradient(90deg, transparent, #fff, transparent)',
-                  boxShadow: '0 0 10px var(--neon-green)',
-                }}
-                initial={{ x: '-100%' }}
-                animate={{ x: '200%' }}
-                transition={{ duration: 0.5, ease: 'easeOut', repeat: 2 }}
-              />
-            )}
+      {/* Managers List - shown below in compact mode, or to the right otherwise */}
+      {!compactMode && (
+        <>
+          {/* Animated connector arrow when messages flow */}
+          <div className="flex items-start pt-16 relative">
+            {/* Connection line with energy beam */}
+            <div className="flex items-center gap-1">
+              <div className={`relative h-0.5 w-8 rounded-full overflow-hidden ${
+                bridgeReceivedMessage ? 'bg-[var(--neon-green)]' : 'bg-gray-700'
+              }`}>
+                {bridgeReceivedMessage && (
+                  <motion.div
+                    className="absolute h-full w-4 rounded-full"
+                    style={{
+                      background: 'linear-gradient(90deg, transparent, #fff, transparent)',
+                      boxShadow: '0 0 10px var(--neon-green)',
+                    }}
+                    initial={{ x: '-100%' }}
+                    animate={{ x: '200%' }}
+                    transition={{ duration: 0.5, ease: 'easeOut', repeat: 2 }}
+                  />
+                )}
+              </div>
+              <motion.span
+                className={`text-lg font-bold ${
+                  bridgeReceivedMessage ? 'text-[var(--neon-green)]' : 'text-gray-600'
+                }`}
+                animate={bridgeReceivedMessage ? {
+                  scale: [1, 1.3, 1],
+                  x: [0, 3, 0],
+                } : {}}
+                transition={{ duration: 0.3, repeat: bridgeReceivedMessage ? 3 : 0 }}
+              >
+                →
+              </motion.span>
+            </div>
+            {/* Flying arrow animation */}
+            <AnimatePresence>
+              {bridgeReceivedMessage && (
+                <motion.div
+                  className="absolute left-0 top-[50%] -translate-y-1/2 text-[var(--neon-green)]"
+                  initial={{ x: -20, opacity: 0, scale: 0.5 }}
+                  animate={{ x: 60, opacity: [0, 1, 1, 0], scale: [0.5, 1.2, 1, 0.8] }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.6, ease: 'easeOut' }}
+                >
+                  ➤
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
-          <motion.span
-            className={`text-lg font-bold ${
-              bridgeReceivedMessage ? 'text-[var(--neon-green)]' : 'text-gray-600'
-            }`}
-            animate={bridgeReceivedMessage ? {
-              scale: [1, 1.3, 1],
-              x: [0, 3, 0],
-            } : {}}
-            transition={{ duration: 0.3, repeat: bridgeReceivedMessage ? 3 : 0 }}
-          >
-            →
-          </motion.span>
-        </div>
-        {/* Flying arrow animation */}
-        <AnimatePresence>
-          {bridgeReceivedMessage && (
-            <motion.div
-              className="absolute left-0 top-[50%] -translate-y-1/2 text-[var(--neon-green)]"
-              initial={{ x: -20, opacity: 0, scale: 0.5 }}
-              animate={{ x: 60, opacity: [0, 1, 1, 0], scale: [0.5, 1.2, 1, 0.8] }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.6, ease: 'easeOut' }}
-            >
-              ➤
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+        </>
+      )}
 
       {/* Managers List */}
-      <div className="w-52 flex-shrink-0 flex flex-col">
+      <div className={`flex flex-col ${compactMode ? 'flex-1 mt-3' : 'flex-shrink-0'}`}>
         <div className="flex items-center gap-2 mb-2">
           <Tooltip
             content={
@@ -1220,7 +1234,9 @@ export function ArchitectureTree({
             }
             position="bottom"
           >
-            <h3 className="font-medium text-white text-sm cursor-help">Managers</h3>
+            <h3 className="font-medium text-sm text-white">
+              Managers
+            </h3>
           </Tooltip>
           <span className="text-[9px] text-gray-500 bg-[var(--card)] px-1.5 py-0.5 rounded">
             {managers.length}
@@ -1251,101 +1267,6 @@ export function ArchitectureTree({
             <div className="text-[9px] text-gray-600 py-1.5 text-center">
               +{idleManagers.length - (10 - activeManagers.length)} more idle
             </div>
-          )}
-        </div>
-      </div>
-
-      {/* Arrow */}
-      <div className="flex items-start pt-16 text-gray-600">
-        <span className="text-lg">→</span>
-      </div>
-
-      {/* Projects */}
-      <div className="w-56 flex-shrink-0 flex flex-col relative">
-        <div className="flex items-center justify-between mb-3">
-          <Tooltip
-            content={
-              <TooltipContent
-                title="Active Projects"
-                description="Projects being built by the orchestrator system. Click to see task details."
-              />
-            }
-            position="bottom"
-          >
-            <h3 className="font-medium text-white cursor-help">Projects</h3>
-          </Tooltip>
-          <button
-            onClick={() => setShowImportModal(true)}
-            className="px-2 py-1 text-[10px] bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
-            title="Import project from folder"
-          >
-            + Import
-          </button>
-        </div>
-        <div className="flex-1 overflow-y-auto bg-[var(--card)] border border-[var(--card-border)] rounded-lg p-2 relative">
-          {/* Project detail overlay */}
-          <AnimatePresence>
-            {selectedProject && (
-              <ProjectDetailPanel
-                project={selectedProject}
-                onClose={() => setSelectedProject(null)}
-              />
-            )}
-          </AnimatePresence>
-
-          {projects.length === 0 ? (
-            <div className="text-center py-4">
-              <div className="text-2xl mb-1">📁</div>
-              <p className="text-[10px] text-gray-600">No projects</p>
-            </div>
-          ) : (
-            projects.map((project, i) => {
-              const percent = project.total > 0 ? Math.round((project.completed / project.total) * 100) : 0;
-              const isActive = project.status === 'active';
-              const isComplete = percent === 100;
-              return (
-                <motion.div
-                  key={i}
-                  className={`py-2 px-2 -mx-2 border-b border-[var(--card-border)] last:border-0 cursor-pointer rounded transition-colors ${
-                    isActive ? 'bg-blue-900/20 hover:bg-blue-900/30' : 'hover:bg-[var(--background)]'
-                  }`}
-                  onClick={() => setSelectedProject(project)}
-                  whileHover={{ scale: 1.01 }}
-                  whileTap={{ scale: 0.99 }}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                      <span className={`text-xs truncate ${isComplete ? 'text-green-400' : 'text-white'}`}>
-                        {project.name}
-                      </span>
-                      {isActive && (
-                        <span className="flex-shrink-0 w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
-                      )}
-                      {isComplete && (
-                        <span className="flex-shrink-0 text-[9px] text-green-500">✓</span>
-                      )}
-                    </div>
-                    <span className="text-[10px] text-gray-500 ml-2">{percent}%</span>
-                  </div>
-                  <div className="w-full bg-gray-800 rounded h-1">
-                    <div
-                      className={`h-1 rounded transition-all ${
-                        isComplete ? 'bg-green-600' : isActive ? 'bg-blue-500' : 'bg-gray-600'
-                      }`}
-                      style={{ width: `${percent}%` }}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between mt-1">
-                    <span className="text-[9px] text-gray-600">
-                      {project.completed}/{project.total} tasks
-                    </span>
-                    <span className="text-[9px] text-gray-600">
-                      Click for details →
-                    </span>
-                  </div>
-                </motion.div>
-              );
-            })
           )}
         </div>
       </div>

@@ -9,6 +9,8 @@ interface ClaudesPanelProps {
   processes: ClaudeProcess[];
   onRefresh: () => void;
   getCsrfToken: () => Promise<string>;
+  isExpanded?: boolean;
+  onHeaderClick?: () => void;
 }
 
 function formatRuntime(runtime: string): string {
@@ -169,7 +171,7 @@ function CpuIndicator({ cpu }: { cpu: number }) {
   );
 }
 
-export function ClaudesPanel({ processes, onRefresh, getCsrfToken }: ClaudesPanelProps) {
+export function ClaudesPanel({ processes, onRefresh, getCsrfToken, isExpanded, onHeaderClick }: ClaudesPanelProps) {
   const [expandedPid, setExpandedPid] = useState<number | null>(null);
   const [actionLoading, setActionLoading] = useState<{ pid: number; action: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -209,20 +211,29 @@ export function ClaudesPanel({ processes, onRefresh, getCsrfToken }: ClaudesPane
   };
 
   return (
-    <div className="w-80 flex-shrink-0 border-l border-[var(--card-border)] bg-[var(--card)]/30 flex flex-col">
+    <div className="h-full flex-shrink-0 bg-[var(--card)]/30 flex flex-col">
       {/* Header */}
-      <div className="p-3 border-b border-[var(--card-border)] flex items-center justify-between">
+      <div
+        className={`p-3 border-b border-[var(--card-border)] flex items-center justify-between cursor-pointer transition-colors ${
+          isExpanded ? 'bg-[var(--neon-green)]/5' : 'hover:bg-[var(--card)]/50'
+        }`}
+        onClick={onHeaderClick}
+      >
         <div className="flex items-center gap-2">
           <Tooltip
             content={
               <TooltipContent
                 title="Claude Processes"
-                description="All running Claude Code processes on this machine. View their status, resource usage, and control them."
+                description="All running Claude Code processes on this machine. Click header to expand/collapse."
               />
             }
             position="left"
           >
-            <h2 className="font-medium text-white text-sm cursor-help">Claudes</h2>
+            <h2 className={`font-medium text-sm cursor-pointer transition-colors ${
+              isExpanded ? 'text-[var(--neon-green)]' : 'text-white hover:text-[var(--neon-green)]'
+            }`}>
+              Claudes
+            </h2>
           </Tooltip>
           {processes.length > 0 && (
             <Tooltip
@@ -234,10 +245,16 @@ export function ClaudesPanel({ processes, onRefresh, getCsrfToken }: ClaudesPane
               </span>
             </Tooltip>
           )}
+          {isExpanded && (
+            <span className="text-[9px] text-gray-500">Click to collapse</span>
+          )}
         </div>
         <Tooltip content="Refresh process list" position="left">
           <button
-            onClick={onRefresh}
+            onClick={(e) => {
+              e.stopPropagation();
+              onRefresh();
+            }}
             className="text-gray-500 hover:text-gray-300 transition-colors text-xs"
           >
             ↻
