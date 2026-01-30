@@ -500,9 +500,20 @@ function ImportProjectModal({
     setImportStatus('Starting import...');
 
     try {
+      // Get CSRF token first
+      const csrfResponse = await fetch('/api/csrf');
+      if (!csrfResponse.ok) {
+        throw new Error('Failed to get CSRF token');
+      }
+      const { token: csrfToken } = await csrfResponse.json();
+
+      // Now make the import request with CSRF token
       const response = await fetch('/api/projects/import', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-csrf-token': csrfToken,
+        },
         body: JSON.stringify({ folderPath, projectName }),
       });
 
