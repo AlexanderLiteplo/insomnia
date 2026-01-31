@@ -774,7 +774,14 @@ export default function Dashboard() {
                 <p className="text-gray-600 text-xs">No active managers</p>
               </div>
             ) : (
-              status?.managers.map((manager, i) => {
+              // Sort managers: active/processing first, then by name
+              [...(status?.managers || [])].sort((a, b) => {
+                const aActive = a.status === 'processing' || a.status === 'active';
+                const bActive = b.status === 'processing' || b.status === 'active';
+                if (aActive && !bActive) return -1;
+                if (!aActive && bActive) return 1;
+                return a.name.localeCompare(b.name);
+              }).map((manager, i) => {
                 const isProcessing = manager.status === 'processing';
                 const isActive = manager.status === 'active';
                 const hasQueue = manager.messageQueue.length > 0;
