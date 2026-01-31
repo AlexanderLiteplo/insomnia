@@ -330,7 +330,7 @@ export function spawnBackgroundHealthMonitor(): void {
 
 ## CRITICAL: Scope Restriction
 You must ONLY work within the Insomnia project directory: ~/Documents/insomnia
-DO NOT access ~/claude-automation-system/ or any archived directories.
+DO NOT access any archived or deprecated directories.
 
 Your job is to:
 1. Check that all required directories exist in ~/Documents/insomnia/

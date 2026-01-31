@@ -132,7 +132,7 @@ node dist/telegram-send-cli.js <chat_id> "message"
 ## Key Files
 
 ```
-~/claude-automation-system/bridge/
+~/Documents/insomnia/bridge/
 ├── src/                            # TypeScript source
 │   ├── telegram-server.ts          # Main entry, Telegram long polling
 │   ├── telegram-responder.ts       # Routes messages to managers

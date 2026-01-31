@@ -22,9 +22,9 @@ The Insomnia dashboard now includes a convenient "Import" button in the Projects
    - Click the "Import" button
    - The system will:
      - Validate that the folder exists
-     - Create a project directory in `~/claude-automation-system/orchestrator/projects/{project-name}/`
+     - Create a project directory in `~/Documents/insomnia/orchestrator/projects/{project-name}/`
      - Generate an initial `tasks.json` file
-     - Add the project to the registry at `~/claude-automation-system/orchestrator/projects.json`
+     - Add the project to the registry at `~/Documents/insomnia/orchestrator/projects.json`
      - Display the project in the dashboard
 
 ## What Gets Created
@@ -33,7 +33,7 @@ When you import a project, the system creates:
 
 ### Project Directory Structure
 ```
-~/claude-automation-system/orchestrator/projects/{project-name}/
+~/Documents/insomnia/orchestrator/projects/{project-name}/
 ├── tasks.json              # Main project definition
 └── .analyze-project.sh     # Helper script for analysis
 ```
@@ -79,7 +79,7 @@ Example:
 ```
 
 ### Registry Entry
-The project is registered in `~/claude-automation-system/orchestrator/projects.json`:
+The project is registered in `~/Documents/insomnia/orchestrator/projects.json`:
 ```json
 {
   "projects": [
@@ -98,7 +98,7 @@ The project is registered in `~/claude-automation-system/orchestrator/projects.j
 2. **Manual Enhancement**: You can edit the `tasks.json` file to add specific tasks
 3. **Orchestrator Processing**: Start the orchestrator to work on the project:
    ```bash
-   cd ~/claude-automation-system/orchestrator
+   cd ~/Documents/insomnia/orchestrator
    ./scripts/projects.sh start "my-project"
    ./scripts/orchestrator.sh start
    ```

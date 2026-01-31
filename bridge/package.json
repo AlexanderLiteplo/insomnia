@@ -1,5 +1,5 @@
 {
-  "name": "claude-automation-bridge",
+  "name": "insomnia-bridge",
   "version": "4.0.0",
   "description": "Telegram bot bridge for Claude agents with multi-manager support",
   "main": "dist/telegram-server.js",

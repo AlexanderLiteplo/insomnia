@@ -1,6 +1,6 @@
 # Setup Guide
 
-Complete instructions for setting up the Claude Automation System.
+Complete instructions for setting up Insomnia.
 
 ## Prerequisites
 
@@ -184,6 +184,6 @@ chmod +x orchestrator/scripts/*.sh
 
 ## Next Steps
 
-- Read the [Architecture documentation](ARCHITECTURE.md)
+- Read the [Architecture documentation](../ARCHITECTURE.md)
 - Create your first project in `orchestrator/prds/tasks.json`
 - Send a message to your Telegram bot to test

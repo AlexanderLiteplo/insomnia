@@ -58,6 +58,27 @@ orchestrator/
 |--------|---------|
 | `orchestrator.sh` | Start/stop/status/logs for the orchestrator |
 | `projects.sh` | Manage multiple projects |
+| `parallel-orchestrator.sh` | Run orchestrators for multiple projects in parallel |
+| `worker.sh` | Worker loop for single project (uses shared `.state/`) |
+| `manager.sh` | Manager loop for single project (uses shared `.state/`) |
+| `worker-isolated.sh` | Worker for parallel orchestration (project-specific state) |
+| `manager-isolated.sh` | Manager for parallel orchestration (project-specific state) |
+| `heartbeat.sh` | Health monitoring for running processes |
+
+### Isolated Scripts
+
+The `*-isolated.sh` scripts are designed for **parallel orchestration** - running multiple projects simultaneously. Unlike the standard scripts that use a single shared `.state/` directory, isolated scripts:
+
+- Take `PROJECT_NAME` and `TASKS_FILE` as arguments
+- Create project-specific state directories (`.state/<project-name>/`)
+- Write project-specific logs (`logs/<project-name>/`)
+- Allow multiple worker/manager pairs to run concurrently
+
+Example usage:
+```bash
+# Run isolated worker for a specific project
+./scripts/worker-isolated.sh my-project /path/to/tasks.json
+```
 
 ## Environment Variables
 
