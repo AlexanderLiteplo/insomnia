@@ -22,6 +22,8 @@ export interface Manager {
   currentTask: string | null;
   pid: number | null;
   orchestratorSessionId: string | null;
+  orchestrators: string[];  // IDs of orchestrators spawned by this manager
+  projectIds: string[];     // IDs of projects this manager is responsible for
   messageQueue: QueuedMessage[];
   createdAt: string;
   lastActiveAt: string;
@@ -82,6 +84,8 @@ export function createManager(name: string, description: string, topics: string[
     currentTask: null,
     pid: null,
     orchestratorSessionId: null,
+    orchestrators: [],
+    projectIds: [],
     messageQueue: [],
     createdAt: new Date().toISOString(),
     lastActiveAt: new Date().toISOString(),

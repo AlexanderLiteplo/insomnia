@@ -23,6 +23,7 @@ import {
 } from './manager-registry';
 import { loadHistory, formatForPrompt, addMessage } from './history';
 import { spawnTelegramManager, interruptManager, isManagerRunning } from './telegram-manager-agent';
+import { getProjectRegistryContext, findMatchingProjects, getAllProjects } from './project-registry';
 
 const RESPONDER_SESSIONS_DIR = path.join(DATA_DIR, 'responder-sessions');
 
@@ -44,13 +45,29 @@ interface ResponderResult {
 // Quick classifier prompt
 function getClassifierPrompt(message: string, managers: Manager[], conversationHistory: string): string {
   const managerList = managers.length > 0
-    ? managers.map(m => `- "${m.name}" (${m.status}): ${m.description} | Topics: ${m.topics.join(', ')}`).join('\n')
+    ? managers.map(m => {
+        const orchInfo = m.orchestrators && m.orchestrators.length > 0 ? ` | Orchestrators: ${m.orchestrators.length}` : '';
+        const projInfo = m.projectIds && m.projectIds.length > 0 ? ` | Projects: ${m.projectIds.length}` : '';
+        return `- "${m.name}" (${m.status}): ${m.description} | Topics: ${m.topics.join(', ')}${orchInfo}${projInfo}`;
+      }).join('\n')
     : 'No managers currently active.';
 
-  return `You are a message router. Classify this message and decide how to handle it.
+  // Get project registry context
+  const projectContext = getProjectRegistryContext();
+
+  return `You are a message router for the Insomnia multi-agent system. Classify this message and decide how to handle it.
+
+## System Architecture
+- **Managers** are long-running Opus agents that handle specific topics/projects
+- **Each Manager can spawn Orchestrators** for projects they're responsible for
+- **Orchestrators** run the PRD-based workflow (Worker implements, Manager reviews)
+- All project work MUST go through an orchestrator with a PRD
 
 ## Active Managers
 ${managerList}
+
+${projectContext}
+
 ${conversationHistory}
 ## User Message
 "${message}"
@@ -61,10 +78,12 @@ ${conversationHistory}
    - User asks for something to be built, created, checked, investigated, or researched
    - User asks to check progress, status, or look at something (requires actual work)
    - ANY request that requires running commands, reading files, or doing actual work
+   - When creating for a specific project, include the project name in topics
 
 2. **QUEUE** to existing manager if:
-   - Message relates to a topic an existing manager handles
+   - Message relates to a topic/project an existing manager handles
    - It's a follow-up or continuation of ongoing work
+   - Prefer managers that already own the related project
 
 3. **INTERRUPT** a manager if:
    - Message contains urgent changes to ongoing work
@@ -83,8 +102,9 @@ Respond with ONLY a JSON object (no markdown, no explanation):
   "action": "create" | "queue" | "interrupt" | "direct",
   "managerName": "name for new or existing manager",
   "managerId": "existing manager ID if queue/interrupt",
-  "topics": ["topic1", "topic2"],  // for create only
+  "topics": ["topic1", "topic2"],  // for create only, include project names if applicable
   "description": "what this manager does",  // for create only
+  "projectName": "project-name if this relates to a specific project",  // optional
   "response": "direct response text"  // for direct only
 }`;
 }

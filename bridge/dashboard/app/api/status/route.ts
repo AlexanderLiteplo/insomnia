@@ -3,7 +3,7 @@ import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { authenticateReadRequest } from '../../lib/auth';
-import { BRIDGE_DIR, MANAGER_REGISTRY, ORCHESTRATOR_DIR, PROJECTS_DIR, CONFIG_PATH } from '../../lib/paths';
+import { BRIDGE_DIR, MANAGER_REGISTRY, ORCHESTRATOR_DIR, PROJECTS_DIR, CONFIG_PATH, PROJECT_REGISTRY } from '../../lib/paths';
 
 interface TelegramBridgeStatus {
   running: boolean;
@@ -463,6 +463,34 @@ function getModelConfig() {
   }
 }
 
+interface ProjectRegistryEntry {
+  id: string;
+  name: string;
+  description: string;
+  outputDir: string;
+  managerId: string | null;
+  orchestratorId: string | null;
+  prdFile: string | null;
+  scopeFile: string | null;
+  tasksFile: string | null;
+  status: 'idle' | 'active' | 'completed' | 'paused';
+  createdAt: string;
+  lastUpdatedAt: string;
+}
+
+function getProjectRegistry(): ProjectRegistryEntry[] {
+  if (!fs.existsSync(PROJECT_REGISTRY)) {
+    return [];
+  }
+
+  try {
+    const data = JSON.parse(fs.readFileSync(PROJECT_REGISTRY, 'utf8'));
+    return data.projects || [];
+  } catch {
+    return [];
+  }
+}
+
 export async function GET(request: Request) {
   // Authenticate the request (read-only, more permissive)
   const auth = authenticateReadRequest(request);
@@ -476,6 +504,7 @@ export async function GET(request: Request) {
     bridge: getBridgeStatus(),
     managers: getManagers(),
     projects: getProjects(),
+    projectRegistry: getProjectRegistry(),
     orchestrator: getOrchestratorStatus(),
     claudeProcesses: claudeProcessDetails.length,
     claudeProcessDetails,

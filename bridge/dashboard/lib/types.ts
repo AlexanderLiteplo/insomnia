@@ -10,7 +10,25 @@ export interface Manager {
   status: 'active' | 'idle' | 'processing';
   currentTask: string | null;
   messageQueue: { id: string; content: string }[];
+  orchestrators: string[];  // IDs of orchestrators spawned by this manager
+  projectIds: string[];     // IDs of projects this manager is responsible for
   lastActiveAt: string;
+}
+
+// Project Registry Entry (source of truth)
+export interface ProjectRegistryEntry {
+  id: string;
+  name: string;
+  description: string;
+  outputDir: string;
+  managerId: string | null;
+  orchestratorId: string | null;
+  prdFile: string | null;
+  scopeFile: string | null;
+  tasksFile: string | null;
+  status: 'idle' | 'active' | 'completed' | 'paused';
+  createdAt: string;
+  lastUpdatedAt: string;
 }
 
 // Task interface for project tasks
@@ -98,6 +116,7 @@ export interface SystemStatus {
   bridge: BridgeStatus;
   managers: Manager[];
   projects: Project[];
+  projectRegistry: ProjectRegistryEntry[];  // Source of truth from .project-registry.json
   orchestrator?: OrchestratorStatus;
   claudeProcesses: number;
   claudeProcessDetails: ClaudeProcess[];

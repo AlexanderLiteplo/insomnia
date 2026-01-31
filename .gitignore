@@ -4,10 +4,15 @@ config.json
 .imessage-state.json
 .manager-registry.json
 .manager-registry-cleaned.json
+.project-registry.json
 .human-tasks.json
 .sent-messages.json
 projects.json
 external-projects.json
+
+# PRD and Scope documents (contain project details)
+prds/
+scopes/
 
 # Sessions (contain private conversations)
 sessions/

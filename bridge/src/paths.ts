@@ -24,6 +24,7 @@ export const PATHS = {
     dist: path.join(BRIDGE_DIR, 'dist'),
     config: path.join(BRIDGE_DIR, 'config.json'),
     managerRegistry: path.join(BRIDGE_DIR, '.manager-registry.json'),
+    projectRegistry: path.join(BRIDGE_DIR, '.project-registry.json'),
     managerSessions: path.join(BRIDGE_DIR, 'manager-sessions'),
     responderSessions: path.join(BRIDGE_DIR, 'responder-sessions'),
     humanTasks: path.join(BRIDGE_DIR, '.human-tasks.json'),
@@ -31,6 +32,9 @@ export const PATHS = {
     telegramState: path.join(BRIDGE_DIR, '.telegram-state.json'),
     conversationHistory: path.join(BRIDGE_DIR, '.conversation-history.json'),
     sendCli: path.join(BRIDGE_DIR, 'dist', 'telegram-send-cli.js'),
+    prds: path.join(BRIDGE_DIR, 'prds'),
+    scopes: path.join(BRIDGE_DIR, 'scopes'),
+    projects: path.join(BRIDGE_DIR, 'projects'),
   },
   // Orchestrator paths
   orchestrator: {
@@ -88,9 +92,12 @@ export function validatePaths(): ValidationReport {
     { path: PATHS.bridge.dist, description: 'Bridge compiled JS', createIfMissing: false },
     { path: PATHS.bridge.managerSessions, description: 'Manager session logs', createIfMissing: true },
     { path: PATHS.bridge.responderSessions, description: 'Responder session logs', createIfMissing: true },
+    { path: PATHS.bridge.prds, description: 'PRD documents', createIfMissing: true },
+    { path: PATHS.bridge.scopes, description: 'Scope documents', createIfMissing: true },
+    { path: PATHS.bridge.projects, description: 'Project task files', createIfMissing: true },
     { path: ORCHESTRATOR_DIR, description: 'Orchestrator root', createIfMissing: false },
     { path: PATHS.orchestrator.scripts, description: 'Orchestrator scripts', createIfMissing: false },
-    { path: PATHS.orchestrator.prds, description: 'PRDs directory', createIfMissing: true },
+    { path: PATHS.orchestrator.prds, description: 'PRDs directory (legacy)', createIfMissing: true },
     { path: PATHS.orchestrator.state, description: 'Orchestrator state', createIfMissing: true },
     { path: PATHS.orchestrator.logs, description: 'Orchestrator logs', createIfMissing: true },
   ];
@@ -213,6 +220,9 @@ export function ensureDirectories(): void {
   const dirsToCreate = [
     PATHS.bridge.managerSessions,
     PATHS.bridge.responderSessions,
+    PATHS.bridge.prds,
+    PATHS.bridge.scopes,
+    PATHS.bridge.projects,
     PATHS.orchestrator.prds,
     PATHS.orchestrator.state,
     PATHS.orchestrator.logs,
