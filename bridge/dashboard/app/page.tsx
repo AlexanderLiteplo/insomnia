@@ -121,6 +121,8 @@ export default function Dashboard() {
   const [addProjectPath, setAddProjectPath] = useState('');
   const [addProjectError, setAddProjectError] = useState<string | null>(null);
   const [addingProject, setAddingProject] = useState(false);
+  const [browsingFinder, setBrowsingFinder] = useState(false);
+  const [selectedFolders, setSelectedFolders] = useState<Array<{ path: string; name: string; projectType: string; importing?: boolean; imported?: boolean; error?: string }>>([]);
 
   const fetchStatus = async () => {
     try {
@@ -249,6 +251,93 @@ export default function Dashboard() {
     } finally {
       setAddingProject(false);
     }
+  };
+
+  const browseForFolders = async () => {
+    setBrowsingFinder(true);
+    setAddProjectError(null);
+
+    try {
+      const res = await secureFetch('/api/projects/browse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ startPath: process.env.HOME || '/Users', multiple: true }),
+      });
+
+      const data = await res.json();
+
+      if (data.cancelled) {
+        return;
+      }
+
+      if (!data.success) {
+        setAddProjectError(data.error || 'Failed to browse folders');
+        return;
+      }
+
+      // Add new folders to selection (avoid duplicates)
+      setSelectedFolders(prev => {
+        const existingPaths = new Set(prev.map(f => f.path));
+        const newFolders = data.folders.filter((f: { path: string }) => !existingPaths.has(f.path));
+        return [...prev, ...newFolders];
+      });
+    } catch (err) {
+      setAddProjectError('Failed to open folder picker');
+    } finally {
+      setBrowsingFinder(false);
+    }
+  };
+
+  const importSelectedFolders = async () => {
+    if (selectedFolders.length === 0) return;
+
+    // Import each folder one by one
+    for (let i = 0; i < selectedFolders.length; i++) {
+      const folder = selectedFolders[i];
+      if (folder.imported) continue;
+
+      // Mark as importing
+      setSelectedFolders(prev => prev.map((f, idx) =>
+        idx === i ? { ...f, importing: true, error: undefined } : f
+      ));
+
+      try {
+        // Convert folder name to kebab-case for project name
+        const projectName = folder.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+        const res = await secureFetch('/api/projects/import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            folderPath: folder.path,
+            projectName,
+          }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          setSelectedFolders(prev => prev.map((f, idx) =>
+            idx === i ? { ...f, importing: false, error: data.error || 'Import failed' } : f
+          ));
+        } else {
+          setSelectedFolders(prev => prev.map((f, idx) =>
+            idx === i ? { ...f, importing: false, imported: true } : f
+          ));
+        }
+      } catch {
+        setSelectedFolders(prev => prev.map((f, idx) =>
+          idx === i ? { ...f, importing: false, error: 'Import failed' } : f
+        ));
+      }
+    }
+
+    // Refresh status after all imports
+    fetchStatus();
+  };
+
+  const removeSelectedFolder = (index: number) => {
+    setSelectedFolders(prev => prev.filter((_, i) => i !== index));
   };
 
   useEffect(() => {
@@ -1179,11 +1268,116 @@ export default function Dashboard() {
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-[var(--card)] border border-[var(--card-border)] rounded-lg p-6 w-full max-w-md mx-4"
+              className="bg-[var(--card)] border border-[var(--card-border)] rounded-lg p-6 w-full max-w-lg mx-4 max-h-[80vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
-              <h3 className="text-lg font-semibold text-white mb-4">Add Project</h3>
+              <h3 className="text-lg font-semibold text-white mb-4">Add Projects</h3>
 
+              {/* Finder Import Section */}
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-3">
+                  <label className="block text-sm text-gray-400">Import from Finder</label>
+                  <button
+                    onClick={browseForFolders}
+                    disabled={browsingFinder}
+                    className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-500 transition-colors disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {browsingFinder ? (
+                      <>
+                        <span className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin" />
+                        Opening Finder...
+                      </>
+                    ) : (
+                      <>
+                        <span>📂</span>
+                        Browse Finder
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* Selected folders list */}
+                {selectedFolders.length > 0 && (
+                  <div className="space-y-2 mb-3">
+                    {selectedFolders.map((folder, index) => (
+                      <div
+                        key={folder.path}
+                        className={`flex items-center justify-between p-2 rounded border ${
+                          folder.imported
+                            ? 'border-green-800 bg-green-900/20'
+                            : folder.error
+                            ? 'border-red-800 bg-red-900/20'
+                            : 'border-[var(--card-border)] bg-[var(--background)]'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <span className="text-lg">
+                            {folder.projectType === 'node' ? '📦' :
+                             folder.projectType === 'python' ? '🐍' :
+                             folder.projectType === 'rust' ? '🦀' :
+                             folder.projectType === 'go' ? '🐹' :
+                             folder.projectType === 'ios' ? '📱' : '📁'}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm text-white truncate">{folder.name}</div>
+                            <div className="text-[10px] text-gray-500 truncate">{folder.path}</div>
+                            {folder.error && (
+                              <div className="text-[10px] text-red-400">{folder.error}</div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 ml-2">
+                          {folder.importing && (
+                            <span className="w-3 h-3 border border-blue-400/30 border-t-blue-400 rounded-full animate-spin" />
+                          )}
+                          {folder.imported && (
+                            <span className="text-green-400 text-sm">✓</span>
+                          )}
+                          {!folder.imported && !folder.importing && (
+                            <button
+                              onClick={() => removeSelectedFolder(index)}
+                              className="text-gray-500 hover:text-red-400 transition-colors p-1"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {selectedFolders.length > 0 && selectedFolders.some(f => !f.imported) && (
+                  <button
+                    onClick={importSelectedFolders}
+                    disabled={selectedFolders.every(f => f.imported || f.importing)}
+                    className="w-full px-4 py-2 text-sm bg-[var(--neon-green)] text-black rounded hover:bg-[var(--neon-green)]/90 transition-colors disabled:opacity-50"
+                  >
+                    {selectedFolders.some(f => f.importing)
+                      ? 'Importing...'
+                      : `Import ${selectedFolders.filter(f => !f.imported).length} Project${selectedFolders.filter(f => !f.imported).length !== 1 ? 's' : ''}`
+                    }
+                  </button>
+                )}
+
+                {selectedFolders.length > 0 && selectedFolders.every(f => f.imported) && (
+                  <div className="text-center text-green-400 text-sm py-2">
+                    All projects imported successfully!
+                  </div>
+                )}
+              </div>
+
+              {/* Divider */}
+              <div className="relative mb-6">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-[var(--card-border)]"></div>
+                </div>
+                <div className="relative flex justify-center text-xs">
+                  <span className="px-2 bg-[var(--card)] text-gray-500">or add manually</span>
+                </div>
+              </div>
+
+              {/* Manual Add Section */}
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm text-gray-400 mb-1">Project Name *</label>
@@ -1221,17 +1415,18 @@ export default function Dashboard() {
                     setAddProjectName('');
                     setAddProjectPath('');
                     setAddProjectError(null);
+                    setSelectedFolders([]);
                   }}
                   className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
                 >
-                  Cancel
+                  {selectedFolders.some(f => f.imported) ? 'Done' : 'Cancel'}
                 </button>
                 <button
                   onClick={addProject}
-                  disabled={addingProject}
+                  disabled={addingProject || !addProjectName.trim()}
                   className="px-4 py-2 text-sm bg-[var(--neon-green)] text-black rounded hover:bg-[var(--neon-green)]/90 transition-colors disabled:opacity-50"
                 >
-                  {addingProject ? 'Adding...' : 'Add Project'}
+                  {addingProject ? 'Adding...' : 'Add Manually'}
                 </button>
               </div>
             </motion.div>
