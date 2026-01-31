@@ -17,6 +17,9 @@ type ExpandedSection = 'managers' | 'projects' | 'claudes' | 'tasks' | null;
 // Selected task for detailed view
 type SelectedTask = string | null;
 
+// Selected manager for detailed view
+type SelectedManager = string | null;
+
 // CSRF token management
 let csrfToken: string | null = null;
 let csrfTokenPromise: Promise<string> | null = null;
@@ -114,6 +117,7 @@ export default function Dashboard() {
   const [nightlyConfig, setNightlyConfig] = useState<{ enabled: boolean; nextRun?: string | null } | null>(null);
   const [expandedSection, setExpandedSection] = useState<ExpandedSection>(null);
   const [selectedTask, setSelectedTask] = useState<SelectedTask>(null);
+  const [selectedManager, setSelectedManager] = useState<SelectedManager>(null);
   const [isHealing, setIsHealing] = useState(false);
   const [healStatus, setHealStatus] = useState<string | null>(null);
   const [showAddProject, setShowAddProject] = useState(false);
@@ -372,6 +376,9 @@ export default function Dashboard() {
   const urgentCount = pendingTasks.filter(t => t.priority === 'urgent').length;
   const highCount = pendingTasks.filter(t => t.priority === 'high').length;
   const selectedTaskData = selectedTask ? tasks.find(t => t.id === selectedTask) : null;
+  const selectedManagerData = selectedManager && status?.managers
+    ? status.managers.find(m => m?.id === selectedManager)
+    : null;
 
   // Helper for panel flex animation - avoids TypeScript narrowing issues
   const getPanelFlex = (section: 'managers' | 'projects' | 'claudes' | 'tasks') => {
@@ -717,10 +724,10 @@ export default function Dashboard() {
           {status && (
             <ArchitectureTree
               bridge={status.bridge}
-              managers={status.managers}
-              projects={status.projects}
+              managers={status.managers || []}
+              projects={status.projects || []}
               orchestrator={status.orchestrator}
-              responderActive={status.managers.some(m => m.status === 'processing')}
+              responderActive={Array.isArray(status.managers) && status.managers.some(m => m?.status === 'processing')}
               models={status.models}
               expandedSection={expandedSection}
               onSectionClick={setExpandedSection}
@@ -809,6 +816,99 @@ export default function Dashboard() {
           )}
         </AnimatePresence>
 
+        {/* Middle Detail Panel - Manager Details */}
+        <AnimatePresence>
+          {selectedManagerData && (
+            <motion.div
+              className="overflow-hidden border-r border-purple-500/50 bg-[var(--card)] flex flex-col flex-shrink-0"
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: 400, opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
+              transition={{ duration: 0.3, ease: 'easeInOut' }}
+            >
+              <div className="p-3 border-b border-[var(--card-border)] bg-purple-900/10 flex items-center justify-between">
+                <h2 className="font-medium text-sm text-purple-400">Manager Details</h2>
+                <button
+                  onClick={() => setSelectedManager(null)}
+                  className="text-gray-500 hover:text-gray-300 text-xs"
+                >
+                  Close ✕
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-4">
+                <div className="mb-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className={`text-[10px] px-2 py-0.5 rounded ${
+                      selectedManagerData.status === 'processing'
+                        ? 'bg-blue-900/50 text-blue-400 border border-blue-800'
+                        : 'bg-gray-800 text-gray-400 border border-gray-700'
+                    }`}>
+                      {selectedManagerData.status.toUpperCase()}
+                    </span>
+                    {(selectedManagerData.messageQueue?.length ?? 0) > 0 && (
+                      <span className="text-[10px] px-2 py-0.5 rounded bg-yellow-900/50 text-yellow-500 border border-yellow-800">
+                        {selectedManagerData.messageQueue?.length ?? 0} queued
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-lg font-medium text-white mb-1">{selectedManagerData.name}</h3>
+                  <p className="text-xs text-gray-500">Last active {formatTimeAgo(selectedManagerData.lastActiveAt)}</p>
+                  <p className="text-xs text-gray-600 font-mono mt-1">{selectedManagerData.id}</p>
+                </div>
+
+                {selectedManagerData.description && (
+                  <div className="mb-4">
+                    <h4 className="text-xs font-medium text-gray-400 mb-1">Description</h4>
+                    <p className="text-sm text-gray-300">{selectedManagerData.description}</p>
+                  </div>
+                )}
+
+                {selectedManagerData.topics && selectedManagerData.topics.length > 0 && (
+                  <div className="mb-4">
+                    <h4 className="text-xs font-medium text-gray-400 mb-2">Topics</h4>
+                    <div className="flex flex-wrap gap-1">
+                      {selectedManagerData.topics.map((topic: string, idx: number) => (
+                        <span key={idx} className="text-[10px] px-2 py-1 rounded bg-purple-900/30 text-purple-400 border border-purple-800">
+                          {topic}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {selectedManagerData.currentTask && (
+                  <div className="mb-4">
+                    <h4 className="text-xs font-medium text-gray-400 mb-1">Current Task</h4>
+                    <p className="text-sm text-blue-300 bg-blue-900/20 p-2 rounded border border-blue-900">
+                      {selectedManagerData.currentTask}
+                    </p>
+                  </div>
+                )}
+
+                {selectedManagerData.messageQueue && selectedManagerData.messageQueue.length > 0 && (
+                  <div className="mb-4">
+                    <h4 className="text-xs font-medium text-gray-400 mb-2">Message Queue</h4>
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                      {selectedManagerData.messageQueue.map((msg: { id: string; content: string }, idx: number) => (
+                        <div key={msg.id || idx} className="text-[11px] text-gray-400 bg-[var(--background)] p-2 rounded border border-[var(--card-border)]">
+                          {msg.content}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {selectedManagerData.orchestrators && selectedManagerData.orchestrators.length > 0 && (
+                  <div className="mb-4">
+                    <h4 className="text-xs font-medium text-gray-400 mb-1">Orchestrators</h4>
+                    <p className="text-sm text-gray-300">{selectedManagerData.orchestrators.join(', ')}</p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Managers Panel */}
         <motion.div
           className="overflow-hidden border-r border-[var(--card-border)] bg-[var(--card)]/20 flex flex-col cursor-pointer"
@@ -841,14 +941,14 @@ export default function Dashboard() {
                   Managers
                 </h2>
               </Tooltip>
-              {status && status.managers.length > 0 && (
+              {status && Array.isArray(status.managers) && status.managers.length > 0 && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-900/30 text-purple-400">
                   {status.managers.length}
                 </span>
               )}
-              {status && status.managers.filter(m => m.status === 'processing' || m.status === 'active').length > 0 && (
+              {status && Array.isArray(status.managers) && status.managers.filter(m => m?.status === 'processing').length > 0 && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-900/30 text-green-400">
-                  {status.managers.filter(m => m.status === 'processing' || m.status === 'active').length} active
+                  {status.managers.filter(m => m?.status === 'processing').length} active
                 </span>
               )}
             </div>
@@ -857,36 +957,55 @@ export default function Dashboard() {
             )}
           </div>
           <div className="flex-1 overflow-y-auto p-2">
-            {status && status.managers.length === 0 ? (
+            {status && (!Array.isArray(status.managers) || status.managers.length === 0) ? (
               <div className="text-center py-6">
                 <div className="text-2xl mb-1 opacity-50">🤖</div>
                 <p className="text-gray-600 text-xs">No active managers</p>
               </div>
             ) : (
-              // Sort managers: active/processing first, then by name
-              [...(status?.managers || [])].sort((a, b) => {
-                const aActive = a.status === 'processing' || a.status === 'active';
-                const bActive = b.status === 'processing' || b.status === 'active';
-                if (aActive && !bActive) return -1;
-                if (!aActive && bActive) return 1;
-                return a.name.localeCompare(b.name);
+              // Sort managers: processing first, then by lastActiveAt (most recent first), then by ID for stability
+              [...(Array.isArray(status?.managers) ? status.managers : [])].filter(m => m != null).sort((a, b) => {
+                // Processing managers always come first
+                const aProcessing = a?.status === 'processing';
+                const bProcessing = b?.status === 'processing';
+                if (aProcessing && !bProcessing) return -1;
+                if (!aProcessing && bProcessing) return 1;
+
+                // Then sort by lastActiveAt (most recent first)
+                const aTime = a?.lastActiveAt ? new Date(a.lastActiveAt).getTime() : 0;
+                const bTime = b?.lastActiveAt ? new Date(b.lastActiveAt).getTime() : 0;
+                if (aTime !== bTime) return bTime - aTime;
+
+                // Use ID as stable tiebreaker to prevent random swapping
+                return (a?.id || '').localeCompare(b?.id || '');
               }).map((manager, i) => {
+                if (!manager) return null;
                 const isProcessing = manager.status === 'processing';
-                const isActive = manager.status === 'active';
-                const hasQueue = manager.messageQueue.length > 0;
+                // Only show as "active" if actually processing - idle managers are not active
+                const isActive = isProcessing;
+                const hasQueue = (manager.messageQueue?.length ?? 0) > 0;
                 const MANAGER_COLORS = [
                   '#cc6688', '#66aa88', '#aa8866', '#8866aa', '#66aaaa',
                   '#aaaa66', '#aa6666', '#6688aa', '#88aa66', '#aa66aa',
                 ];
-                const color = MANAGER_COLORS[i % MANAGER_COLORS.length];
+                // Use hash of manager ID for stable color assignment (prevents color changes on re-sort)
+                const idHash = manager.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+                const color = MANAGER_COLORS[idHash % MANAGER_COLORS.length];
+
+                const isSelected = selectedManager === manager.id;
 
                 return (
                   <motion.div
                     key={manager.id}
-                    className={`p-2 mb-2 border rounded bg-[var(--background)] transition-colors ${
-                      isProcessing ? 'border-blue-800 bg-blue-900/10' : isActive ? 'border-green-900/50' : 'border-[var(--card-border)]'
+                    className={`p-2 mb-2 border rounded bg-[var(--background)] transition-all cursor-pointer hover:border-purple-500/50 ${
+                      isSelected
+                        ? 'border-purple-500 bg-purple-900/10'
+                        : isProcessing ? 'border-blue-800 bg-blue-900/10' : 'border-[var(--card-border)]'
                     }`}
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedManager(isSelected ? null : manager.id);
+                    }}
                     whileHover={{ scale: 1.01 }}
                   >
                     <div className="flex items-center justify-between mb-1">
@@ -899,18 +1018,20 @@ export default function Dashboard() {
                           {manager.name}
                         </span>
                         {isProcessing && <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />}
-                        {isActive && !isProcessing && <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />}
                       </div>
                       <div className="flex items-center gap-1">
                         {hasQueue && (
                           <span className="text-[9px] px-1 py-0.5 rounded bg-yellow-900/50 text-yellow-500">
-                            {manager.messageQueue.length}
+                            {manager.messageQueue?.length ?? 0}
                           </span>
                         )}
+                        <span className="text-[9px] text-gray-600">
+                          {formatTimeAgo(manager.lastActiveAt)}
+                        </span>
                         <span className={`text-[10px] ${
-                          isProcessing ? 'text-blue-400' : isActive ? 'text-green-500' : 'text-gray-500'
+                          isProcessing ? 'text-blue-400' : 'text-gray-500'
                         }`}>
-                          {isProcessing ? '●' : isActive ? '●' : '○'}
+                          {isProcessing ? '●' : '○'}
                         </span>
                       </div>
                     </div>
@@ -973,7 +1094,7 @@ export default function Dashboard() {
                   Projects
                 </h2>
               </Tooltip>
-              {status && status.projects.length > 0 && (
+              {status && Array.isArray(status.projects) && status.projects.length > 0 && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-900/30 text-blue-400">
                   {status.projects.length}
                 </span>
@@ -995,13 +1116,13 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="flex-1 overflow-y-auto p-2">
-            {status && status.projects.length === 0 ? (
+            {status && (!Array.isArray(status.projects) || status.projects.length === 0) ? (
               <div className="text-center py-6">
                 <div className="text-2xl mb-1 opacity-50">📁</div>
                 <p className="text-gray-600 text-xs">No active projects</p>
               </div>
             ) : (
-              status?.projects.map((project, i) => {
+              (Array.isArray(status?.projects) ? status.projects : []).filter(p => p != null).map((project, i) => {
                 const percent = project.total > 0 ? Math.round((project.completed / project.total) * 100) : 0;
                 const isActive = project.status === 'active';
                 const isComplete = percent === 100;
@@ -1037,7 +1158,7 @@ export default function Dashboard() {
                     </div>
                     {/* Show tasks when expanded */}
                     <AnimatePresence>
-                      {expandedSection === 'projects' && project.tasks && project.tasks.length > 0 && (
+                      {expandedSection === 'projects' && Array.isArray(project.tasks) && project.tasks.length > 0 && (
                         <motion.div
                           initial={{ opacity: 0, height: 0 }}
                           animate={{ opacity: 1, height: 'auto' }}
