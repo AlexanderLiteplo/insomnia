@@ -29,6 +29,11 @@
     "memory:list": "node dist/memory-cli.js list",
     "memory:sessions": "node dist/memory-cli.js sessions",
     "memory:watch": "node dist/memory-cli.js watch",
+    "query": "node dist/query-cli.js",
+    "query:stats": "node dist/query-cli.js stats",
+    "query:messages": "node dist/query-cli.js messages list",
+    "query:managers": "node dist/query-cli.js managers list",
+    "query:projects": "node dist/query-cli.js projects list",
     "clean": "rm -rf dist"
   },
   "keywords": ["claude", "telegram", "bot", "ai", "agent", "multi-manager", "automation"],

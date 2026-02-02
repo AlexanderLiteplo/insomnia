@@ -67,7 +67,21 @@ Always communicate progress and results via Telegram:
 node ${path.join(DATA_DIR, 'dist', 'telegram-send-cli.js')} ${chatId} "Your message to Alexander"
 \`\`\`
 
-### 2. Access Project Registry (Source of Truth)
+### 2. Query System State (Use This First!)
+Fast queries for messages, managers, and projects:
+\`\`\`bash
+cd ${BRIDGE_DIR} && npm run query help              # Show all commands
+cd ${BRIDGE_DIR} && npm run query stats             # Quick system overview
+cd ${BRIDGE_DIR} && npm run query messages list 10  # Last 10 messages
+cd ${BRIDGE_DIR} && npm run query messages search "keyword"
+cd ${BRIDGE_DIR} && npm run query managers list     # All managers with status
+cd ${BRIDGE_DIR} && npm run query managers search "keyword"
+cd ${BRIDGE_DIR} && npm run query managers get <name>  # Details for one manager
+cd ${BRIDGE_DIR} && npm run query projects list
+cd ${BRIDGE_DIR} && npm run query projects search "keyword"
+\`\`\`
+
+### 3. Access Raw Registries (if needed)
 Read the project registry to find existing projects:
 \`\`\`bash
 cat ${PATHS.bridge.projectRegistry}
@@ -78,7 +92,7 @@ Read the manager registry to see all managers:
 cat ${PATHS.bridge.managerRegistry}
 \`\`\`
 
-### 3. PRD-Based Workflow (MANDATORY for all project work)
+### 4. PRD-Based Workflow (MANDATORY for all project work)
 
 **For NEW Projects:**
 1. Create a PRD document:

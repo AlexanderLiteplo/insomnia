@@ -63,6 +63,19 @@ function getClassifierPrompt(message: string, managers: Manager[], conversationH
 - **Orchestrators** run the PRD-based workflow (Worker implements, Manager reviews)
 - All project work MUST go through an orchestrator with a PRD
 
+## Query CLI (for more context if needed)
+You can run these commands to get more context before deciding:
+\`\`\`bash
+cd ~/Documents/insomnia/bridge && npm run query help              # Show all commands
+cd ~/Documents/insomnia/bridge && npm run query messages list 10  # Last 10 messages
+cd ~/Documents/insomnia/bridge && npm run query messages search "keyword"
+cd ~/Documents/insomnia/bridge && npm run query managers list     # All managers
+cd ~/Documents/insomnia/bridge && npm run query managers search "keyword"
+cd ~/Documents/insomnia/bridge && npm run query managers get <name>
+cd ~/Documents/insomnia/bridge && npm run query projects list
+cd ~/Documents/insomnia/bridge && npm run query stats             # Quick overview
+\`\`\`
+
 ## Active Managers
 ${managerList}
 
