@@ -152,10 +152,18 @@ $task_desc
 1. Navigate to: \`$output_dir\`
 2. Implement the requirements
 3. Run: \`$test_cmd\`
-4. If tests pass, mark complete:
+4. If tests pass, mark complete with structured notes:
    \`\`\`bash
-   jq '(.tasks[] | select(.id == "$task_id")) |= . + {status: "worker_done", testsPassing: true}' $TASKS_FILE > /tmp/tasks_tmp.json && mv /tmp/tasks_tmp.json $TASKS_FILE
+   jq '(.tasks[] | select(.id == "$task_id")) |= . + {status: "worker_done", testsPassing: true, workerNotes: "STATUS: DONE | IMPLEMENTED: <files changed> | TESTS: <test results> | DECISIONS: <choices made>"}' $TASKS_FILE > /tmp/tasks_tmp.json && mv /tmp/tasks_tmp.json $TASKS_FILE
    \`\`\`
+
+## Worker Notes Format (REQUIRED)
+When updating workerNotes, use this structure:
+- STATUS: DONE | PARTIAL | BLOCKED
+- IMPLEMENTED: List files created/modified
+- TESTS: Test results with exit codes
+- DECISIONS: Technical choices and why
+- ISSUES: Problems encountered (if any)
 
 $skills
 EOF

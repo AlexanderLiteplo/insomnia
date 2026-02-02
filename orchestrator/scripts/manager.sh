@@ -108,17 +108,26 @@ build_manager_prompt() {
 
 Run: \`cd $output_dir && $test_cmd\`
 
-If tests PASS:
+## Feedback Format (REQUIRED)
+Use this EXACT format for managerReview:
+
+VERDICT: APPROVE | REVISE
+ISSUE: <one sentence describing what's wrong, or "None" if approving>
+LOCATION: <file:line or function name>
+FIX: <specific action to take>
+TEST: <command to verify fix>
+
+## If tests PASS:
 \`\`\`bash
-jq '(.tasks[] | select(.id == "$task_id")) |= . + {status: "completed", managerReview: "Tests pass"}' $TASKS_FILE > /tmp/tasks_tmp.json && mv /tmp/tasks_tmp.json $TASKS_FILE
+jq '(.tasks[] | select(.id == "$task_id")) |= . + {status: "completed", managerReview: "VERDICT: APPROVE | ISSUE: None | LOCATION: N/A | FIX: N/A | TEST: All tests passing"}' $TASKS_FILE > /tmp/tasks_tmp.json && mv /tmp/tasks_tmp.json $TASKS_FILE
 \`\`\`
 
-If tests FAIL (update managerReview with 1-2 sentence fix instruction):
+## If tests FAIL:
 \`\`\`bash
-jq '(.tasks[] | select(.id == "$task_id")) |= . + {status: "pending", managerReview: "BRIEF_FIX_INSTRUCTION", retryCount: ((.retryCount // 0) + 1)}' $TASKS_FILE > /tmp/tasks_tmp.json && mv /tmp/tasks_tmp.json $TASKS_FILE
+jq '(.tasks[] | select(.id == "$task_id")) |= . + {status: "pending", managerReview: "VERDICT: REVISE | ISSUE: <what failed> | LOCATION: <file:line> | FIX: <specific fix> | TEST: <verify command>", retryCount: ((.retryCount // 0) + 1)}' $TASKS_FILE > /tmp/tasks_tmp.json && mv /tmp/tasks_tmp.json $TASKS_FILE
 \`\`\`
 
-Replace BRIEF_FIX_INSTRUCTION with a short plain-text description of what failed and how to fix. No code blocks, no markdown, under 50 words.
+Be SPECIFIC in FIX - not "fix the bug" but "add null check at line 45".
 EOF
 }
 

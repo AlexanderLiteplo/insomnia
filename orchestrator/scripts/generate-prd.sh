@@ -102,6 +102,22 @@ Generate a tasks.json file that can be used by an autonomous Worker/Manager syst
 - `[ -f ./output/file.txt ]` - for file existence checks
 - `node -e "require('./index.js')"` - for module loading checks
 
+### CRITICAL: Requirement Format
+Each requirement MUST follow this pattern:
+- Start with ACTION verb: Create, Add, Implement, Configure, Update, Ensure, Validate
+- Be SPECIFIC: Name exact files, functions, components
+- Be MEASURABLE: Clear pass/fail criteria
+- Be SELF-CONTAINED: No external context needed
+
+❌ BAD: "Add authentication"
+✅ GOOD: "Create POST /api/auth/login endpoint that accepts {email, password} and returns JWT token"
+
+❌ BAD: "Handle errors properly"
+✅ GOOD: "Wrap API calls in try/catch and show toast notification on 4xx/5xx errors"
+
+❌ BAD: "Add tests"
+✅ GOOD: "Add Jest tests for calculateTotal() covering: zero items, single item, negative quantity (should throw)"
+
 OUTPUT ONLY THE JSON. No explanation, no markdown code blocks, just the raw JSON.
 PROMPT_END
 

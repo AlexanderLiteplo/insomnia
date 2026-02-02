@@ -43,6 +43,9 @@ PROMPT_FILE="$SCOPING_DIR/.current_scope_prompt.md"
 log "Creating scoping document for: $PROJECT_IDEA"
 log "Using model: $MANAGER_MODEL"
 
+# Load the scoping template
+TEMPLATE_FILE="$ORCHESTRATOR_DIR/templates/handoffs/scoping-template.md"
+
 # Build the scoping prompt
 cat > "$PROMPT_FILE" << 'PROMPT_END'
 You are a technical product manager creating a scoping document for a new project.
@@ -51,51 +54,31 @@ You are a technical product manager creating a scoping document for a new projec
 PROJECT_IDEA_PLACEHOLDER
 
 ## Your Task
-Create a comprehensive scoping document that includes:
+Fill out this EXACT template. Every section is required. Do not skip sections or add new ones.
+The downstream PRD generator expects this exact structure.
 
-### 1. Project Overview
-- Clear project name (short, memorable)
-- One-paragraph description of what it does
-- Target users/audience
-- Core value proposition
+TEMPLATE_CONTENT_PLACEHOLDER
 
-### 2. Problem Statement
-- What problem does this solve?
-- Why is this problem worth solving?
-- What's the current alternative (if any)?
-
-### 3. Core Features (MVP)
-List 3-7 essential features for a minimum viable product:
-- Feature name: Brief description
-- Priority: Must-have / Should-have / Nice-to-have
-
-### 4. Technical Approach
-- Recommended tech stack (be specific)
-- Architecture overview (keep it simple)
-- Key technical decisions and why
-- External dependencies or APIs needed
-
-### 5. Success Criteria
-- How do we know when this is "done"?
-- What metrics matter?
-- Definition of MVP complete
-
-### 6. Out of Scope (for MVP)
-- What are we explicitly NOT building in v1?
-- Future considerations
-
-### 7. Risks & Unknowns
-- Technical risks
-- Dependencies on external services
-- Open questions that need answers
-
-### 8. Estimated Complexity
-Rate overall complexity: Simple / Medium / Complex
-- Estimated number of tasks: X-Y tasks
-- Key implementation challenges
-
-Write the scoping document now. Be specific and actionable. This document will be used to generate the task list for implementation.
+## Instructions
+1. Replace all placeholder text with actual content
+2. Keep the section headers EXACTLY as shown (PROJECT_NAME, ONE_LINER, etc.)
+3. Use the table formats provided - they parse better
+4. Be specific - vague scopes create vague tasks
+5. Output ONLY the filled template, no preamble or explanation
 PROMPT_END
+
+# Insert template content
+if [ -f "$TEMPLATE_FILE" ]; then
+    TEMPLATE_CONTENT=$(cat "$TEMPLATE_FILE")
+    python3 -c "
+import sys
+content = open('$PROMPT_FILE').read()
+template = '''$(cat "$TEMPLATE_FILE")'''
+content = content.replace('TEMPLATE_CONTENT_PLACEHOLDER', template)
+print(content)
+" > "${PROMPT_FILE}.tmp"
+    mv "${PROMPT_FILE}.tmp" "$PROMPT_FILE"
+fi
 
 # Replace placeholder with actual project idea
 sed -i '' "s|PROJECT_IDEA_PLACEHOLDER|$PROJECT_IDEA|g" "$PROMPT_FILE"
