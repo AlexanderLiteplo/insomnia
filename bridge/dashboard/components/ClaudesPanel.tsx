@@ -11,6 +11,7 @@ interface ClaudesPanelProps {
   getCsrfToken: () => Promise<string>;
   isExpanded?: boolean;
   onHeaderClick?: () => void;
+  onQuickAgentSpawn?: () => void;
 }
 
 function formatRuntime(runtime: string): string {
@@ -171,7 +172,7 @@ function CpuIndicator({ cpu }: { cpu: number }) {
   );
 }
 
-export function ClaudesPanel({ processes, onRefresh, getCsrfToken, isExpanded, onHeaderClick }: ClaudesPanelProps) {
+export function ClaudesPanel({ processes, onRefresh, getCsrfToken, isExpanded, onHeaderClick, onQuickAgentSpawn }: ClaudesPanelProps) {
   const [expandedPid, setExpandedPid] = useState<number | null>(null);
   const [actionLoading, setActionLoading] = useState<{ pid: number; action: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -235,6 +236,27 @@ export function ClaudesPanel({ processes, onRefresh, getCsrfToken, isExpanded, o
               Claudes
             </h2>
           </Tooltip>
+          {onQuickAgentSpawn && (
+            <Tooltip
+              content={
+                <TooltipContent
+                  title="Quick Agent"
+                  description="Spawn a one-off Claude agent for a quick task"
+                />
+              }
+              position="bottom"
+            >
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onQuickAgentSpawn();
+                }}
+                className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--neon-green)]/20 text-[var(--neon-green)] hover:bg-[var(--neon-green)]/30 transition-colors font-bold"
+              >
+                +
+              </button>
+            </Tooltip>
+          )}
           {processes.length > 0 && (
             <Tooltip
               content={`${processes.length} Claude process${processes.length > 1 ? 'es' : ''} running`}

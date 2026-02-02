@@ -5,7 +5,13 @@
   "scripts": {
     "dev": "next dev -p 3333",
     "build": "next build",
-    "start": "next start -p 3333"
+    "start": "next start -p 3333",
+    "scheduler:start": "./nightly-scheduler-ctl.sh start",
+    "scheduler:stop": "./nightly-scheduler-ctl.sh stop",
+    "scheduler:restart": "./nightly-scheduler-ctl.sh restart",
+    "scheduler:status": "./nightly-scheduler-ctl.sh status",
+    "scheduler:logs": "./nightly-scheduler-ctl.sh logs",
+    "scheduler:test": "./nightly-scheduler-ctl.sh test"
   },
   "dependencies": {
     "framer-motion": "^12.29.2",

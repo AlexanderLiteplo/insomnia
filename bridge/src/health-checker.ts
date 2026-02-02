@@ -118,23 +118,70 @@ function cleanupStalePidFiles(): string[] {
 
 /**
  * Fix manager statuses (reset stuck "processing" managers)
+ * Handles:
+ * 1. Managers marked as processing with dead PIDs
+ * 2. Managers marked as processing but stale (no activity for too long)
+ * 3. Managers with queued messages that need processing
  */
 function fixStuckManagers(): string[] {
   const registry = loadRegistry();
   const fixed: string[] = [];
+  const now = Date.now();
+  const STALE_THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes - manager should have some activity
 
   for (const manager of registry.managers) {
-    // Check if manager is marked as processing but has no active PID
-    if (manager.status === 'processing' && manager.pid) {
-      try {
-        process.kill(manager.pid, 0); // Check if process is running
-      } catch {
-        // Process not running, reset status
-        manager.status = 'idle';
-        manager.currentTask = null;
-        manager.pid = null;
-        fixed.push(`Reset stuck manager: ${manager.name} (${manager.id})`);
+    let shouldReset = false;
+    let reason = '';
+
+    if (manager.status === 'processing') {
+      if (manager.pid) {
+        try {
+          process.kill(manager.pid, 0); // Check if process is running
+
+          // Process is running - but check if it's been stale too long
+          const lastActive = new Date(manager.lastActiveAt).getTime();
+          const staleTime = now - lastActive;
+
+          if (staleTime > STALE_THRESHOLD_MS) {
+            // Process is running but hasn't had activity - it's likely stuck
+            // Kill the zombie process
+            try {
+              process.kill(manager.pid, 'SIGTERM');
+              log(`Killed stale manager process: ${manager.name} (PID ${manager.pid}, inactive for ${Math.round(staleTime / 60000)}min)`);
+            } catch {
+              // Ignore kill errors
+            }
+            shouldReset = true;
+            reason = `stale for ${Math.round(staleTime / 60000)} minutes`;
+          }
+        } catch {
+          // Process not running, reset status
+          shouldReset = true;
+          reason = 'PID not running';
+        }
+      } else {
+        // Manager marked as processing but has no PID - definitely stuck
+        shouldReset = true;
+        reason = 'no PID assigned';
       }
+    }
+
+    // Also reset managers that are 'active' status but have been inactive for too long
+    // (active without a PID means it's in a bad state)
+    if (manager.status === 'active' && !manager.pid) {
+      const lastActive = new Date(manager.lastActiveAt).getTime();
+      const staleTime = now - lastActive;
+      if (staleTime > STALE_THRESHOLD_MS) {
+        shouldReset = true;
+        reason = `active status but no PID and stale for ${Math.round(staleTime / 60000)} minutes`;
+      }
+    }
+
+    if (shouldReset) {
+      manager.status = 'idle';
+      manager.currentTask = null;
+      manager.pid = null;
+      fixed.push(`Reset stuck manager: ${manager.name} (${manager.id}) - ${reason}`);
     }
   }
 
@@ -243,7 +290,34 @@ export function runHealthCheck(): HealthCheckResult {
     });
   }
 
-  // 6. Check config.json exists and is valid
+  // 6. Check for managers with queued messages that need attention
+  // Reload registry to get fresh state after fixes
+  const freshRegistry = loadRegistry();
+  const managersWithQueues = freshRegistry.managers.filter(
+    (m: Manager) => m.messageQueue.length > 0 && m.status === 'idle'
+  );
+  if (managersWithQueues.length > 0) {
+    const queueInfo = managersWithQueues.map(
+      (m: Manager) => `${m.name}: ${m.messageQueue.length} queued`
+    ).join(', ');
+    result.checks.push({
+      name: 'Queued Messages',
+      status: 'warn',
+      message: `${managersWithQueues.length} idle managers have pending messages: ${queueInfo}`,
+    });
+    result.warnings.push(
+      `Managers with unprocessed queues: ${queueInfo}. ` +
+      `These may need manual restart or will be picked up on next message routing.`
+    );
+  } else {
+    result.checks.push({
+      name: 'Queued Messages',
+      status: 'pass',
+      message: 'No idle managers with pending queues',
+    });
+  }
+
+  // 7. Check config.json exists and is valid
   if (fs.existsSync(PATHS.bridge.config)) {
     try {
       const config = JSON.parse(fs.readFileSync(PATHS.bridge.config, 'utf8'));

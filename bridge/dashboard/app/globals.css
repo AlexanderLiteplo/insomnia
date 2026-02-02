@@ -596,3 +596,40 @@ body {
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }
+
+/* Custom Scrollbar Styling */
+/* Modern browsers (Firefox) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #00cc88 #1a1a1a;
+}
+
+/* Webkit browsers (Chrome, Safari, Edge) */
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: #1a1a1a;
+  border-radius: 4px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #00cc88;
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #00ffaa;
+}
+
+*::-webkit-scrollbar-thumb:active {
+  background: #00aa66;
+}
+
+/* Horizontal scrollbar styling */
+*::-webkit-scrollbar-corner {
+  background: #1a1a1a;
+}

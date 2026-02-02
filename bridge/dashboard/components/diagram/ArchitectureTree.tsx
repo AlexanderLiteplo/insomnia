@@ -1,11 +1,14 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, memo } from 'react';
 import { Robot } from '../robots/Robot';
 import { StatusDot } from '../ui/StatusDot';
 import { Tooltip, TooltipContent } from '../ui/Tooltip';
 import type { BridgeStatus, Manager, Project, ProjectTask, SystemEvent, ModelConfig } from '../../lib/types';
+
+// Maximum number of activity events to keep in memory
+const MAX_ACTIVITY_EVENTS = 5;
 
 interface OrchestratorStatus {
   workerRunning: boolean;
@@ -212,7 +215,7 @@ const STATUS_TOOLTIPS = {
   offline: 'Manager is idle/sleeping - will wake when needed',
 };
 
-function ManagerRow({
+const ManagerRow = memo(function ManagerRow({
   manager,
   color,
   index,
@@ -228,7 +231,9 @@ function ManagerRow({
   queueChanged?: boolean;
 }) {
   const isProcessing = manager.status === 'processing';
-  const hasQueue = manager.messageQueue.length > 0;
+  // Defensive null check for messageQueue
+  const queueLength = manager.messageQueue?.length ?? 0;
+  const hasQueue = queueLength > 0;
   const robotState = isProcessing ? 'running' : manager.status === 'active' ? 'idle' : 'sleeping';
   const statusType = isProcessing ? 'processing' : manager.status === 'active' ? 'online' : 'offline';
 
@@ -280,14 +285,14 @@ function ManagerRow({
         <span className="font-medium text-white text-[11px] truncate">{manager.name}</span>
         {hasQueue && (
           <Tooltip
-            content={`${manager.messageQueue.length} queued`}
+            content={`${queueLength} queued`}
             position="top"
           >
             <motion.span
               className={`text-[9px] bg-yellow-900/50 text-yellow-500 px-1 py-0.5 rounded cursor-help ${queueChanged ? 'badge-pop' : ''}`}
               animate={queueChanged ? { scale: [1, 1.2, 1] } : {}}
             >
-              {manager.messageQueue.length}
+              {queueLength}
             </motion.span>
           </Tooltip>
         )}
@@ -312,9 +317,9 @@ function ManagerRow({
       </Tooltip>
     </motion.div>
   );
-}
+});
 
-function OrchestratorTeam({ orchestrator, workerJustSpawned = false, managerJustSpawned = false }: { orchestrator?: OrchestratorStatus; workerJustSpawned?: boolean; managerJustSpawned?: boolean }) {
+const OrchestratorTeam = memo(function OrchestratorTeam({ orchestrator, workerJustSpawned = false, managerJustSpawned = false }: { orchestrator?: OrchestratorStatus; workerJustSpawned?: boolean; managerJustSpawned?: boolean }) {
   const workerState = orchestrator?.workerRunning ? 'running' : 'sleeping';
   const managerState = orchestrator?.managerRunning ? 'running' : 'sleeping';
 
@@ -405,7 +410,7 @@ function OrchestratorTeam({ orchestrator, workerJustSpawned = false, managerJust
       </Tooltip>
     </div>
   );
-}
+});
 
 // Task status icon helper
 function getTaskStatusIcon(status: string) {
@@ -775,7 +780,7 @@ export function ArchitectureTree({
   // Import project modal
   const [showImportModal, setShowImportModal] = useState(false);
 
-  // Add activity event
+  // Add activity event with safe bounds
   const addActivityEvent = useCallback((type: ActivityEvent['type'], message: string, color: string) => {
     const event: ActivityEvent = {
       id: `${Date.now()}-${Math.random()}`,
@@ -784,7 +789,11 @@ export function ArchitectureTree({
       color,
       timestamp: Date.now(),
     };
-    setActivityEvents(prev => [...prev, event].slice(-5)); // Keep last 5
+    setActivityEvents(prev => {
+      // Ensure prev is an array and limit to MAX_ACTIVITY_EVENTS
+      const currentEvents = Array.isArray(prev) ? prev : [];
+      return [...currentEvents, event].slice(-MAX_ACTIVITY_EVENTS);
+    });
 
     // Screen flash for important events
     if (type === 'message_received' || type === 'manager_created' || type === 'orchestrator_spawned') {
@@ -800,16 +809,18 @@ export function ArchitectureTree({
 
   // Detect changes between updates
   useEffect(() => {
-    const prevManagers = prevManagersRef.current;
+    // Ensure managers is a valid array
+    const safeManagers = Array.isArray(managers) ? managers : [];
+    const prevManagers = prevManagersRef.current || [];
     const prevOrchestrator = prevOrchestratorRef.current;
     const prevBridge = prevBridgeRef.current;
 
     // Skip if this is the first render (no previous state)
     const isFirstRender = prevManagers.length === 0 && prevOrchestrator === undefined;
 
-    // Detect new managers
-    const prevManagerIdSet = new Set(prevManagers.map(m => m.id));
-    const newManagers = managers.filter(m => !prevManagerIdSet.has(m.id));
+    // Detect new managers with null safety
+    const prevManagerIdSet = new Set(prevManagers.filter(m => m?.id).map(m => m.id));
+    const newManagers = safeManagers.filter(m => m?.id && !prevManagerIdSet.has(m.id));
     if (newManagers.length > 0 && !isFirstRender) {
       setNewManagerIds(new Set(newManagers.map(m => m.id)));
       // Add activity notification for each new manager
@@ -824,21 +835,24 @@ export function ArchitectureTree({
     const queueChanged = new Set<string>();
     const messageReceived = new Set<string>();
 
-    for (const manager of managers) {
-      const prevManager = prevManagers.find(m => m.id === manager.id);
+    for (const manager of safeManagers) {
+      if (!manager?.id) continue;
+      const prevManager = prevManagers.find(m => m?.id === manager.id);
       if (prevManager) {
-        // Check if queue size increased (message received)
-        if (manager.messageQueue.length > prevManager.messageQueue.length) {
+        // Check if queue size increased (message received) with null safety
+        const currentQueueLen = manager.messageQueue?.length ?? 0;
+        const prevQueueLen = prevManager.messageQueue?.length ?? 0;
+        if (currentQueueLen > prevQueueLen) {
           messageReceived.add(manager.id);
           queueChanged.add(manager.id);
-        } else if (manager.messageQueue.length !== prevManager.messageQueue.length) {
+        } else if (currentQueueLen !== prevQueueLen) {
           queueChanged.add(manager.id);
         }
 
         // Check if status changed to processing (started working)
         if (manager.status === 'processing' && prevManager.status !== 'processing') {
           messageReceived.add(manager.id);
-          addActivityEvent('processing_started', `${manager.name} started processing`, '#3b82f6');
+          addActivityEvent('processing_started', `${manager.name || 'Manager'} started processing`, '#3b82f6');
         }
       }
     }
@@ -846,10 +860,10 @@ export function ArchitectureTree({
     if (messageReceived.size > 0 && !isFirstRender) {
       setMessageReceivedIds(messageReceived);
       setBridgeReceivedMessage(true);
-      // Add activity notification
-      const managerNames = managers
-        .filter(m => messageReceived.has(m.id))
-        .map(m => m.name)
+      // Add activity notification with null safety
+      const managerNames = safeManagers
+        .filter(m => m?.id && messageReceived.has(m.id))
+        .map(m => m.name || 'Manager')
         .join(', ');
       addActivityEvent('message_received', `Message received: ${managerNames}`, '#00cc88');
       setTimeout(() => {
@@ -878,13 +892,19 @@ export function ArchitectureTree({
     }
 
     // Update refs for next comparison
-    prevManagersRef.current = managers;
+    prevManagersRef.current = safeManagers;
     prevOrchestratorRef.current = orchestrator;
     prevBridgeRef.current = bridge;
   }, [managers, orchestrator, bridge, addActivityEvent]);
 
-  const activeManagers = managers.filter(m => m.status === 'processing' || m.status === 'active' || m.messageQueue.length > 0);
-  const idleManagers = managers.filter(m => m.status !== 'processing' && m.status !== 'active' && m.messageQueue.length === 0);
+  // Safe manager filtering with null checks
+  const safeManagersList = Array.isArray(managers) ? managers : [];
+  const activeManagers = safeManagersList.filter(m =>
+    m && (m.status === 'processing' || m.status === 'active' || (m.messageQueue?.length ?? 0) > 0)
+  );
+  const idleManagers = safeManagersList.filter(m =>
+    m && m.status !== 'processing' && m.status !== 'active' && (m.messageQueue?.length ?? 0) === 0
+  );
 
   // Show active managers first, then some idle ones
   const displayManagers = [...activeManagers, ...idleManagers.slice(0, Math.max(0, 10 - activeManagers.length))];

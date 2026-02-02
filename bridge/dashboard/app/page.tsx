@@ -6,7 +6,8 @@ import type { HumanTask, SystemStatus } from '../lib/types';
 import { ArchitectureTree } from '../components/diagram/ArchitectureTree';
 import { DonutAnimation } from '../components/ascii/DonutAnimation';
 import { ModelSelector } from '../components/ModelSelector';
-import { AgentSpawner } from '../components/AgentSpawner';
+import { QuickAgentSpawner } from '../components/QuickAgentSpawner';
+import { ManagerSpawner } from '../components/ManagerSpawner';
 import { ClaudesPanel } from '../components/ClaudesPanel';
 import { NightlyBuilds, NightlyBuildsButton } from '../components/NightlyBuilds';
 import { Tooltip, TooltipContent } from '../components/ui/Tooltip';
@@ -112,7 +113,8 @@ export default function Dashboard() {
   const [showActions, setShowActions] = useState(false);
   const [showHealth, setShowHealth] = useState(false);
   const [showModels, setShowModels] = useState(false);
-  const [showSpawner, setShowSpawner] = useState(false);
+  const [showQuickAgentSpawner, setShowQuickAgentSpawner] = useState(false);
+  const [showManagerSpawner, setShowManagerSpawner] = useState(false);
   const [showNightlyBuilds, setShowNightlyBuilds] = useState(false);
   const [nightlyConfig, setNightlyConfig] = useState<{ enabled: boolean; nextRun?: string | null } | null>(null);
   const [expandedSection, setExpandedSection] = useState<ExpandedSection>(null);
@@ -476,25 +478,6 @@ export default function Dashboard() {
             nextRun={nightlyConfig?.nextRun}
           />
 
-          {/* Quick Agent Spawn Button */}
-          <Tooltip
-            content={
-              <TooltipContent
-                title="Quick Agent Spawn"
-                description="Instantly spawn a new Claude Code agent to help with any task"
-              />
-            }
-            position="bottom"
-          >
-            <button
-              onClick={() => setShowSpawner(!showSpawner)}
-              className="bg-[var(--card)] border border-[var(--card-border)] rounded px-3 py-1.5 text-center cursor-pointer hover:border-gray-600 transition-colors hover:border-[var(--neon-green)]/50"
-            >
-              <div className="text-lg font-bold text-[var(--neon-green)]">+</div>
-              <div className="text-[9px] text-gray-500">Spawn</div>
-            </button>
-          </Tooltip>
-
           <Tooltip
             content={
               <TooltipContent
@@ -628,10 +611,18 @@ export default function Dashboard() {
             getCsrfToken={getCsrfToken}
           />
 
-          {/* Agent Spawner */}
-          <AgentSpawner
-            isOpen={showSpawner}
-            onClose={() => setShowSpawner(false)}
+          {/* Quick Agent Spawner */}
+          <QuickAgentSpawner
+            isOpen={showQuickAgentSpawner}
+            onClose={() => setShowQuickAgentSpawner(false)}
+            getCsrfToken={getCsrfToken}
+            onSpawn={() => fetchStatus()}
+          />
+
+          {/* Manager Spawner */}
+          <ManagerSpawner
+            isOpen={showManagerSpawner}
+            onClose={() => setShowManagerSpawner(false)}
             getCsrfToken={getCsrfToken}
             onSpawn={() => fetchStatus()}
           />
@@ -941,6 +932,25 @@ export default function Dashboard() {
                   Managers
                 </h2>
               </Tooltip>
+              <Tooltip
+                content={
+                  <TooltipContent
+                    title="New Manager"
+                    description="Create a new long-running manager agent"
+                  />
+                }
+                position="bottom"
+              >
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowManagerSpawner(true);
+                  }}
+                  className="text-[10px] px-1.5 py-0.5 rounded bg-purple-900/30 text-purple-400 hover:bg-purple-900/50 transition-colors font-bold"
+                >
+                  +
+                </button>
+              </Tooltip>
               {status && Array.isArray(status.managers) && status.managers.length > 0 && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-900/30 text-purple-400">
                   {status.managers.length}
@@ -1211,6 +1221,7 @@ export default function Dashboard() {
               getCsrfToken={getCsrfToken}
               isExpanded={expandedSection === 'claudes'}
               onHeaderClick={() => setExpandedSection(expandedSection === 'claudes' ? null : 'claudes')}
+              onQuickAgentSpawn={() => setShowQuickAgentSpawner(true)}
             />
           )}
         </motion.div>
@@ -1363,14 +1374,15 @@ export default function Dashboard() {
       </div>
 
       {/* Click outside to close dropdowns */}
-      {(showActions || showHealth || showModels || showSpawner) && (
+      {(showActions || showHealth || showModels || showQuickAgentSpawner || showManagerSpawner) && (
         <div
           className="fixed inset-0 z-40"
           onClick={() => {
             setShowActions(false);
             setShowHealth(false);
             setShowModels(false);
-            setShowSpawner(false);
+            setShowQuickAgentSpawner(false);
+            setShowManagerSpawner(false);
           }}
         />
       )}

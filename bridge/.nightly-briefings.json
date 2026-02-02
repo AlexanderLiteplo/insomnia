@@ -1,0 +1,51 @@
+[
+  {
+    "id": "brief_test_1",
+    "createdAt": "2026-01-30T08:00:00Z",
+    "buildStartedAt": "2026-01-30T03:00:00Z",
+    "buildCompletedAt": "2026-01-30T05:30:00Z",
+    "model": "opus",
+    "tldr": "Optimized Insomnia startup time by 40% and fixed 3 UI friction points.",
+    "summary": "Tonight's nightly build focused on performance improvements and user experience enhancements for Insomnia. The main achievements include:\n\n1. Reduced startup time from 2.5s to 1.5s by lazy-loading non-critical components\n2. Fixed the calendar widget not updating when crossing midnight\n3. Improved the task completion animation smoothness\n4. Cleaned up 15 unused utility functions\n5. Added better error messages for failed API calls",
+    "changes": [
+      {
+        "type": "optimization",
+        "title": "Lazy-load components",
+        "description": "Implemented code splitting for non-critical dashboard components to improve startup time",
+        "filesChanged": [
+          "app/page.tsx",
+          "components/ClaudesPanel.tsx"
+        ],
+        "project": "insomnia-dashboard"
+      },
+      {
+        "type": "fix",
+        "title": "Calendar midnight update",
+        "description": "Fixed issue where calendar widget would not update the date when crossing midnight",
+        "filesChanged": [
+          "components/Calendar.tsx"
+        ],
+        "project": "insomnia-dashboard"
+      },
+      {
+        "type": "improvement",
+        "title": "Task animations",
+        "description": "Improved the smoothness of task completion animations using requestAnimationFrame",
+        "filesChanged": [
+          "components/TaskList.tsx"
+        ],
+        "project": "insomnia-dashboard"
+      },
+      {
+        "type": "cleanup",
+        "title": "Remove unused utilities",
+        "description": "Removed 15 unused utility functions that were cluttering the codebase",
+        "filesChanged": [
+          "lib/utils.ts",
+          "lib/helpers.ts"
+        ]
+      }
+    ],
+    "status": "success"
+  }
+]

@@ -1,0 +1,29 @@
+{
+  "enabled": true,
+  "buildTime": "02:00",
+  "wakeUpTime": "08:00",
+  "model": "opus",
+  "customPrompt": "Look for friction points in my projects, scrape useful data, optimize existing code, clean up old files, or build small improvements. Focus on Insomnia and other active projects. Look around the computer and try to find patterns and things that can be improved or created for the human (Alexander Liteplo) queue builds and managers and orchestrators in order to continue working for then entire 6 hours of the night that Alexander won't be using his computer. Be safe and secure though. Don't download anything dangerous. but yeah feel free to go crazy and spin up as many tasks or queued managers and orchestrators and PRD's as you feel. Also feel free to do things like search the internet for AI agent and agent orchestration repos of the past couple weeks that seem like they could be useful.",
+  "lastRun": null,
+  "nextRun": "2026-02-02T05:00:00.000Z",
+  "earningsExtraction": {
+    "enabled": false,
+    "sources": [
+      "stripe"
+    ],
+    "customSourcePath": null
+  },
+  "priorityTasks": {
+    "enabled": false,
+    "maxTasks": 4,
+    "sources": [
+      "orchestrator",
+      "human-tasks"
+    ]
+  },
+  "managerDistribution": {
+    "enabled": false,
+    "maxManagersToSpawn": 4,
+    "taskAssignmentStrategy": "priority-based"
+  }
+}
