@@ -42,83 +42,66 @@ interface ResponderResult {
   ackMessage: string;
 }
 
-// Quick classifier prompt
+// Quick classifier prompt - LEAN version that uses CLI for context
 function getClassifierPrompt(message: string, managers: Manager[], conversationHistory: string): string {
-  const managerList = managers.length > 0
-    ? managers.map(m => {
-        const orchInfo = m.orchestrators && m.orchestrators.length > 0 ? ` | Orchestrators: ${m.orchestrators.length}` : '';
-        const projInfo = m.projectIds && m.projectIds.length > 0 ? ` | Projects: ${m.projectIds.length}` : '';
-        return `- "${m.name}" (${m.status}): ${m.description} | Topics: ${m.topics.join(', ')}${orchInfo}${projInfo}`;
-      }).join('\n')
-    : 'No managers currently active.';
+  // Only include counts, not full lists
+  const activeCount = managers.filter(m => m.status === 'active' || m.status === 'processing').length;
+  const totalCount = managers.length;
+  const withQueueCount = managers.filter(m => (m.messageQueue?.length || 0) > 0).length;
 
-  // Get project registry context
-  const projectContext = getProjectRegistryContext();
+  // Only show recently active managers (last hour) as quick reference
+  const hourAgo = Date.now() - 60 * 60 * 1000;
+  const recentManagers = managers
+    .filter(m => m.lastActiveAt && new Date(m.lastActiveAt).getTime() > hourAgo)
+    .slice(0, 5)
+    .map(m => `- "${m.name}" (${m.status}): ${m.topics?.slice(0, 3).join(', ') || 'no topics'}`)
+    .join('\n');
 
-  return `You are a message router for the Insomnia multi-agent system. Classify this message and decide how to handle it.
+  return `You are a message router for the Insomnia multi-agent system.
 
-## System Architecture
-- **Managers** are long-running Opus agents that handle specific topics/projects
-- **Each Manager can spawn Orchestrators** for projects they're responsible for
-- **Orchestrators** run the PRD-based workflow (Worker implements, Manager reviews)
-- All project work MUST go through an orchestrator with a PRD
+## Your Job
+Route incoming messages to the right manager, or create new ones.
 
-## Query CLI (for more context if needed)
-You can run these commands to get more context before deciding:
+## Quick Stats
+- Total managers: ${totalCount} (${activeCount} active/processing, ${withQueueCount} with queued messages)
+- Recently active: ${recentManagers || 'None in last hour'}
+
+## Insomnia CLI - Use This to Get Context!
+Before making a decision, query the system:
 \`\`\`bash
-cd ~/Documents/insomnia/bridge && npm run query help              # Show all commands
-cd ~/Documents/insomnia/bridge && npm run query messages list 10  # Last 10 messages
-cd ~/Documents/insomnia/bridge && npm run query messages search "keyword"
-cd ~/Documents/insomnia/bridge && npm run query managers list     # All managers
-cd ~/Documents/insomnia/bridge && npm run query managers search "keyword"
-cd ~/Documents/insomnia/bridge && npm run query managers get <name>
-cd ~/Documents/insomnia/bridge && npm run query projects list
-cd ~/Documents/insomnia/bridge && npm run query stats             # Quick overview
+insomnia stats                    # Quick overview
+insomnia messages 5               # Last 5 messages for context
+insomnia messages search "keyword"
+insomnia managers                 # List all managers
+insomnia managers search "keyword" # Find relevant manager
+insomnia managers get <name>       # Full details on a manager
+insomnia projects                  # List projects
 \`\`\`
 
-## Active Managers
-${managerList}
-
-${projectContext}
-
-${conversationHistory}
 ## User Message
 "${message}"
 
 ## Decision Rules
-1. **CREATE** new manager if:
-   - Message is about a NEW project/topic not covered by existing managers
-   - User asks for something to be built, created, checked, investigated, or researched
-   - User asks to check progress, status, or look at something (requires actual work)
-   - ANY request that requires running commands, reading files, or doing actual work
-   - When creating for a specific project, include the project name in topics
+1. **CREATE** - New topic/project not covered by existing managers, OR any work request
+2. **QUEUE** - Relates to existing manager's topic (use CLI to find: \`insomnia managers search "keyword"\`)
+3. **INTERRUPT** - Urgent change to ongoing work ("stop", "change", "actually", "wait")
+4. **DIRECT** - ONLY for pure greetings/thanks with no request
 
-2. **QUEUE** to existing manager if:
-   - Message relates to a topic/project an existing manager handles
-   - It's a follow-up or continuation of ongoing work
-   - Prefer managers that already own the related project
-
-3. **INTERRUPT** a manager if:
-   - Message contains urgent changes to ongoing work
-   - User says "stop", "change", "actually", "wait", "instead"
-   - New context that affects current work
-
-4. **DIRECT** response if (USE SPARINGLY - only for these exact cases):
-   - Pure greetings with no request: "hello", "hi", "hey"
-   - Pure thanks with no follow-up: "thanks", "thank you"
-   - Simple acknowledgment: "ok", "got it", "cool"
-   - NEVER use direct for: checking status, looking at progress, investigating anything, or any request that needs work done
+## Process
+1. Read the message
+2. If unsure about existing managers, run: \`insomnia managers search "relevant keyword"\`
+3. If need more context, run: \`insomnia messages 5\`
+4. Make your decision
 
 ## Output Format
-Respond with ONLY a JSON object (no markdown, no explanation):
+JSON only (no markdown):
 {
   "action": "create" | "queue" | "interrupt" | "direct",
-  "managerName": "name for new or existing manager",
-  "managerId": "existing manager ID if queue/interrupt",
-  "topics": ["topic1", "topic2"],  // for create only, include project names if applicable
-  "description": "what this manager does",  // for create only
-  "projectName": "project-name if this relates to a specific project",  // optional
-  "response": "direct response text"  // for direct only
+  "managerName": "name",
+  "managerId": "id if queue/interrupt",
+  "topics": ["topic1"],
+  "description": "what manager does",
+  "response": "text if direct"
 }`;
 }
 

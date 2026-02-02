@@ -1,0 +1,107 @@
+#!/bin/bash
+# Insomnia CLI - Quick access to system queries and commands
+# Usage: insomnia <command> [args]
+
+BRIDGE_DIR="$HOME/Documents/insomnia/bridge"
+
+case "$1" in
+  help|--help|-h|"")
+    echo "Insomnia CLI - System queries and commands"
+    echo ""
+    echo "QUERIES:"
+    echo "  insomnia stats                   Quick system overview"
+    echo "  insomnia messages [n]            List last N messages (default: 10)"
+    echo "  insomnia messages search <kw>    Search message history"
+    echo "  insomnia managers                List all managers"
+    echo "  insomnia managers count          Count by status"
+    echo "  insomnia managers search <kw>    Search managers"
+    echo "  insomnia managers get <name>     Get manager details"
+    echo "  insomnia projects                List all projects"
+    echo "  insomnia projects search <kw>    Search projects"
+    echo ""
+    echo "ACTIONS:"
+    echo "  insomnia send <msg>              Send Telegram message"
+    echo "  insomnia status                  Bridge and manager status"
+    echo "  insomnia health                  System health check"
+    echo "  insomnia restart                 Restart the bridge"
+    echo "  insomnia gui                     Open the dashboard"
+    echo ""
+    ;;
+  stats)
+    node "$BRIDGE_DIR/dist/query-cli.js" stats
+    ;;
+  messages)
+    shift
+    if [ "$1" = "search" ]; then
+      shift
+      node "$BRIDGE_DIR/dist/query-cli.js" messages search "$@"
+    else
+      node "$BRIDGE_DIR/dist/query-cli.js" messages list "${1:-10}"
+    fi
+    ;;
+  managers)
+    shift
+    case "$1" in
+      count)
+        node "$BRIDGE_DIR/dist/query-cli.js" managers count
+        ;;
+      search)
+        shift
+        node "$BRIDGE_DIR/dist/query-cli.js" managers search "$@"
+        ;;
+      get)
+        shift
+        node "$BRIDGE_DIR/dist/query-cli.js" managers get "$@"
+        ;;
+      *)
+        node "$BRIDGE_DIR/dist/query-cli.js" managers list
+        ;;
+    esac
+    ;;
+  projects)
+    shift
+    case "$1" in
+      count)
+        node "$BRIDGE_DIR/dist/query-cli.js" projects count
+        ;;
+      search)
+        shift
+        node "$BRIDGE_DIR/dist/query-cli.js" projects search "$@"
+        ;;
+      *)
+        node "$BRIDGE_DIR/dist/query-cli.js" projects list
+        ;;
+    esac
+    ;;
+  send)
+    shift
+    # Get chat ID from config
+    CHAT_ID=$(cat "$BRIDGE_DIR/config.json" 2>/dev/null | grep -o '"allowed_user_id":[0-9]*' | grep -o '[0-9]*')
+    if [ -z "$CHAT_ID" ]; then
+      echo "Error: Could not find chat ID in config"
+      exit 1
+    fi
+    node "$BRIDGE_DIR/dist/telegram-send-cli.js" "$CHAT_ID" "$*"
+    ;;
+  status)
+    node "$BRIDGE_DIR/dist/managers-cli.js" status
+    ;;
+  health)
+    node "$BRIDGE_DIR/dist/health-cli.js" check
+    ;;
+  restart)
+    echo "Restarting bridge..."
+    pkill -f "node dist/telegram-server.js" 2>/dev/null
+    rm -f "$BRIDGE_DIR/.bridge.lock"
+    cd "$BRIDGE_DIR" && npm start &
+    echo "Bridge restarting in background"
+    ;;
+  gui)
+    open "http://localhost:3333"
+    ;;
+  *)
+    echo "Unknown command: $1"
+    echo "Run 'insomnia help' for usage"
+    exit 1
+    ;;
+esac
