@@ -12,6 +12,7 @@ interface HealthStatus {
     orchestratorWorker: HealthCheck;
     orchestratorManager: HealthCheck;
     dashboard: HealthCheck;
+    rentahumanApi: HealthCheck;
   };
   summary: string;
 }
@@ -93,6 +94,39 @@ function checkTelegramBridge(): HealthCheck {
   }
 }
 
+async function checkRentahumanApi(): Promise<HealthCheck> {
+  try {
+    const start = Date.now();
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+
+    const res = await fetch('https://rentahuman.ai', {
+      method: 'HEAD',
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    const latency = Date.now() - start;
+
+    if (res.ok) {
+      return {
+        status: latency > 3000 ? 'warn' : 'pass',
+        message: latency > 3000 ? `Slow (${latency}ms)` : `Up (${latency}ms)`,
+        uptime: `${latency}ms latency`,
+      };
+    }
+    return {
+      status: 'fail',
+      message: `HTTP ${res.status}`,
+    };
+  } catch {
+    return {
+      status: 'fail',
+      message: 'Not reachable',
+    };
+  }
+}
+
 function checkOrchestratorProcess(type: 'worker' | 'manager'): HealthCheck {
   const pidFile = path.join(ORCHESTRATOR_DIR, '.state', `${type}.pid`);
 
@@ -140,6 +174,7 @@ export async function GET() {
       status: 'pass' as const,
       message: 'Running',
     },
+    rentahumanApi: await checkRentahumanApi(),
   };
 
   // Determine overall status

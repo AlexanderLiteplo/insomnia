@@ -525,6 +525,7 @@ export default function Dashboard() {
                         orchestratorWorker: 'Executes tasks from the task queue - implements features and fixes',
                         orchestratorManager: 'Reviews worker output, approves changes, and manages task flow',
                         dashboard: 'This web interface for monitoring the system',
+                        rentahumanApi: 'RentAHuman.ai marketplace - external API uptime check',
                       };
                       return (
                         <Tooltip
@@ -537,6 +538,7 @@ export default function Dashboard() {
                               {name === 'telegramBridge' ? 'Telegram Bridge' :
                                name === 'orchestratorWorker' ? 'Orchestrator Worker' :
                                name === 'orchestratorManager' ? 'Orchestrator Manager' :
+                               name === 'rentahumanApi' ? 'RentAHuman.ai' :
                                'Dashboard'}
                             </span>
                             <span className={`flex items-center gap-1 ${
