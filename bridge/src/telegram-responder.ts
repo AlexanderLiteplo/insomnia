@@ -8,7 +8,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { log } from './logger';
 import { DATA_DIR, loadConfig, getModel } from './config';
-import { sendTelegramMessage } from './telegram-send';
+import { sendTelegramMessage, sendTelegramMessageWithKeyboard } from './telegram-send';
+import { getPendingTasks } from './human-tasks';
+import { InlineKeyboardButton } from './telegram';
 import {
   loadRegistry,
   findMatchingManager,
@@ -311,6 +313,43 @@ async function handleCommand(chatId: number, command: string): Promise<boolean> 
       return true;
     }
 
+    case '/tasks': {
+      const pendingTasks = getPendingTasks();
+
+      if (pendingTasks.length === 0) {
+        await sendTelegramMessage(chatId, 'No pending human tasks.');
+        return true;
+      }
+
+      const priorityEmoji = { low: '📋', medium: '📌', high: '⚠️', urgent: '🚨' };
+      let taskList = `📋 *Pending Human Tasks* (${pendingTasks.length})\n\n`;
+
+      // Show up to 5 tasks with details
+      for (const task of pendingTasks.slice(0, 5)) {
+        taskList += `${priorityEmoji[task.priority]} *${task.title}*\n`;
+        const shortDesc = task.description.length > 60
+          ? task.description.substring(0, 60) + '...'
+          : task.description;
+        taskList += `   ${shortDesc}\n\n`;
+      }
+
+      if (pendingTasks.length > 5) {
+        taskList += `... and ${pendingTasks.length - 5} more\n`;
+      }
+
+      // Build inline keyboard with action buttons for each task
+      const keyboard: InlineKeyboardButton[][] = pendingTasks.slice(0, 5).flatMap(task => {
+        const titleShort = task.title.length > 20 ? task.title.substring(0, 20) + '...' : task.title;
+        return [[
+          { text: `✅ ${titleShort}`, callback_data: `task_complete:${task.id}` },
+          { text: '✗ Dismiss', callback_data: `task_dismiss:${task.id}` },
+        ]];
+      });
+
+      await sendTelegramMessageWithKeyboard(chatId, taskList, keyboard);
+      return true;
+    }
+
     case '/help': {
       const help = `🤖 *Claude Automation Bot*
 
@@ -323,6 +362,7 @@ I route your messages to specialized Claude agents (managers) that can:
 *Commands:*
 /status - Show bridge status
 /managers - List active managers
+/tasks - List pending human tasks with quick actions
 /help - Show this help
 
 Just send any message and I'll route it to the right manager!`;

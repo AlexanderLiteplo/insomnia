@@ -1,7 +1,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { DATA_DIR, loadConfig } from './config';
-import { sendTelegramMessage } from './telegram-send';
+import { sendTelegramMessage, sendTelegramMessageWithKeyboard } from './telegram-send';
+import { InlineKeyboardButton } from './telegram';
 import { log } from './logger';
 
 const TASKS_FILE = path.join(DATA_DIR, '.human-tasks.json');
@@ -172,10 +173,19 @@ async function notifyTask(task: HumanTask, chatId: number): Promise<void> {
     message += `\nProject: ${task.project}`;
   }
 
-  message += `\n\nView all tasks: http://localhost:3333`;
+  // Build inline keyboard with action buttons
+  const keyboard: InlineKeyboardButton[][] = [
+    [
+      { text: '✅ Complete', callback_data: `task_complete:${task.id}` },
+      { text: '✗ Dismiss', callback_data: `task_dismiss:${task.id}` },
+    ],
+    [
+      { text: '📋 Show Details', callback_data: `task_details:${task.id}` },
+    ]
+  ];
 
   try {
-    await sendTelegramMessage(chatId, message);
+    await sendTelegramMessageWithKeyboard(chatId, message, keyboard);
     updateTask(task.id, { notified: true });
     log(`[HumanTasks] Notified user about task: ${task.title}`);
   } catch (err) {

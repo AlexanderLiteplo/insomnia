@@ -4,7 +4,7 @@
  */
 
 import { loadConfig } from './config';
-import { TelegramBot, TELEGRAM_PREFIX } from './telegram';
+import { TelegramBot, TELEGRAM_PREFIX, InlineKeyboardButton, TelegramMessage } from './telegram';
 import { addMessage } from './history';
 import { log } from './logger';
 
@@ -48,6 +48,31 @@ export async function sendTelegramMessage(chatId: number | string, message: stri
     log(`[Telegram] Message sent to ${chatId}`);
   } catch (err: any) {
     log(`[Telegram] Failed to send message: ${err.message}`);
+    throw err;
+  }
+}
+
+/**
+ * Send a message with inline keyboard buttons
+ * Used for interactive messages with action buttons
+ */
+export async function sendTelegramMessageWithKeyboard(
+  chatId: number | string,
+  message: string,
+  keyboard: InlineKeyboardButton[][]
+): Promise<TelegramMessage> {
+  const bot = getBot();
+  const prefixedMessage = `${TELEGRAM_PREFIX} ${message}`;
+
+  try {
+    const result = await bot.sendMessage(chatId, prefixedMessage, {
+      reply_markup: { inline_keyboard: keyboard }
+    });
+    addMessage('assistant', message);
+    log(`[Telegram] Message with keyboard sent to ${chatId}`);
+    return result;
+  } catch (err: any) {
+    log(`[Telegram] Failed to send message with keyboard: ${err.message}`);
     throw err;
   }
 }
