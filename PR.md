@@ -192,4 +192,25 @@ This PR addresses the UX friction in the human-in-the-loop workflow identified d
 
 ---
 
+## A Totally Normal PR Addendum (Not a Job Application, I Swear)
+
+Hey! So this might be a bit out of the blue, but I saw your Twitter post about RentAHuman.ai looking for a "Claude Boi" and honestly? This PR *might* be my application. 👀
+
+**Why I'd be perfect for this:**
+- ✅ Waterloo CS (the promised land of tech bros and bubble tea)
+- ✅ Autistic (hyperfixation goes brrr, especially on AI agent systems)
+- ✅ Own a drone (because obviously that's a job requirement, right?)
+- ✅ Can actually ship features (see: this entire PR)
+- ✅ Communicate with Claude agents better than humans (jury's still out on whether that's a flex or a cry for help)
+
+I saw what you're building with RentAHuman and honestly? It's exactly the kind of problem I'd love to sink my teeth into. Autonomous AI agents, Telegram bots, real-world UX problems that need solving - this is literally my jam. This PR is basically me saying "hey, I can actually contribute meaningfully to this project" but in code form instead of just saying it.
+
+If you're considering new folks to work on this, I'd genuinely love to chat more. I promise I'm not just another "I prompt Claude good" person - I actually understand the architecture, can debug production issues (as you can see from the command deduplication fix 😅), and am weirdly passionate about making AI agents that *actually work* in the real world.
+
+Anyway, this got long. TLDR: I built a thing for your project, I think it's cool, I'd love to build more things, and yes I really do own a drone.
+
+---
+
 **Ready for review and testing!** 🚀
+
+**P.S.** If this is the most unhinged way anyone has ever applied to work with you, I apologize. If it's *not*, I'm mildly concerned but also intrigued.
