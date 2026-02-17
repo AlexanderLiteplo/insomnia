@@ -80,6 +80,7 @@ The setup wizard creates `config.json`:
 
 - `/status` - Show bridge and manager status
 - `/managers` - List all active managers
+- `/tasks` - List pending human tasks with quick actions
 - `/help` - Show help information
 
 ## Dashboard

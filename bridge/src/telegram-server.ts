@@ -8,11 +8,11 @@ import * as path from 'path';
 import { execSync } from 'child_process';
 import { loadConfig, DATA_DIR, isTelegramUserAllowed, isTelegramUserRestricted } from './config';
 import { wasRecentlyProcessed, markAsProcessed } from './state';
-import { setLastChatId } from './human-tasks';
+import { setLastChatId, updateTask, getTaskById } from './human-tasks';
 import { handleIncomingMessage } from './telegram-responder';
 import { log } from './logger';
 import { getAllManagers, getActiveManagers } from './manager-registry';
-import { TelegramBot, TelegramUpdate, TELEGRAM_PREFIX, isBotMessage } from './telegram';
+import { TelegramBot, TelegramUpdate, TELEGRAM_PREFIX, isBotMessage, CallbackQuery } from './telegram';
 import { loadTelegramState, saveTelegramState } from './telegram-state';
 import { runStartupHealthCheck } from './health-checker';
 import { PATHS, getOrchestratorDir, isOrchestratorAvailable } from './paths';
@@ -165,7 +165,104 @@ async function pollForUpdates(): Promise<void> {
   }
 }
 
+/**
+ * Handle callback queries from inline keyboard buttons
+ */
+async function handleCallbackQuery(query: CallbackQuery, config: any): Promise<void> {
+  const userId = query.from.id;
+  const chatId = query.message?.chat.id;
+  const messageId = query.message?.message_id;
+  const data = query.data;
+
+  if (!data || !chatId) {
+    await bot.answerCallbackQuery(query.id, { text: 'Invalid action' });
+    return;
+  }
+
+  // Check authorization
+  if (!isTelegramUserAllowed(config, userId)) {
+    await bot.answerCallbackQuery(query.id, { text: 'Unauthorized' });
+    return;
+  }
+
+  const [action, taskId] = data.split(':');
+
+  try {
+    switch (action) {
+      case 'task_complete': {
+        const task = updateTask(taskId, {
+          status: 'completed',
+          completedAt: new Date().toISOString()
+        });
+        if (task) {
+          await bot.answerCallbackQuery(query.id, { text: `✅ Completed: ${task.title}` });
+          if (messageId) {
+            await bot.editMessageText(chatId, messageId,
+              `✅ COMPLETED: ${task.title}\n\n${task.description}`,
+              { reply_markup: { inline_keyboard: [] } }
+            );
+          }
+          log(`[HumanTasks] Task completed via Telegram: ${task.id}`);
+        } else {
+          await bot.answerCallbackQuery(query.id, { text: 'Task not found' });
+        }
+        break;
+      }
+
+      case 'task_dismiss': {
+        const task = updateTask(taskId, { status: 'dismissed' });
+        if (task) {
+          await bot.answerCallbackQuery(query.id, { text: `✗ Dismissed: ${task.title}` });
+          if (messageId) {
+            await bot.editMessageText(chatId, messageId,
+              `✗ Dismissed: ${task.title}`,
+              { reply_markup: { inline_keyboard: [] } }
+            );
+          }
+          log(`[HumanTasks] Task dismissed via Telegram: ${task.id}`);
+        } else {
+          await bot.answerCallbackQuery(query.id, { text: 'Task not found' });
+        }
+        break;
+      }
+
+      case 'task_details': {
+        const task = getTaskById(taskId);
+        if (task) {
+          let details = `📋 Task Details\n\n`;
+          details += `Title: ${task.title}\n`;
+          details += `Priority: ${task.priority.toUpperCase()}\n`;
+          details += `Status: ${task.status}\n`;
+          details += `Created: ${new Date(task.createdAt).toLocaleString()}\n`;
+          if (task.project) details += `Project: ${task.project}\n`;
+          if (task.instructions.length > 0) {
+            details += `\nSteps:\n`;
+            task.instructions.forEach((s, i) => details += `${i + 1}. ${s}\n`);
+          }
+          await bot.answerCallbackQuery(query.id, { text: 'Details shown below' });
+          await bot.sendMessage(chatId, `${TELEGRAM_PREFIX} ${details}`);
+        } else {
+          await bot.answerCallbackQuery(query.id, { text: 'Task not found' });
+        }
+        break;
+      }
+
+      default:
+        await bot.answerCallbackQuery(query.id, { text: 'Unknown action' });
+    }
+  } catch (err: any) {
+    log(`[Telegram] Error handling callback query: ${err.message}`);
+    await bot.answerCallbackQuery(query.id, { text: 'Error processing action' });
+  }
+}
+
 async function processUpdate(update: TelegramUpdate, config: any): Promise<void> {
+  // Handle callback queries (inline button presses)
+  if (update.callback_query) {
+    await handleCallbackQuery(update.callback_query, config);
+    return;
+  }
+
   const message = update.message;
   if (!message || !message.text) return;
 
@@ -246,6 +343,7 @@ async function main(): Promise<void> {
     await bot.setMyCommands([
       { command: 'status', description: 'Check bridge and manager status' },
       { command: 'managers', description: 'List active managers' },
+      { command: 'tasks', description: 'List pending human tasks' },
       { command: 'help', description: 'Show help information' },
     ]);
 

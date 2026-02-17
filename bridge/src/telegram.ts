@@ -35,10 +35,39 @@ export interface TelegramMessage {
   reply_to_message?: TelegramMessage;
 }
 
+/**
+ * Inline keyboard button - used for interactive message buttons
+ * callback_data format: "action:data" (max 64 bytes)
+ */
+export interface InlineKeyboardButton {
+  text: string;
+  callback_data?: string;
+  url?: string;
+}
+
+/**
+ * Inline keyboard markup - grid of buttons attached to a message
+ */
+export interface InlineKeyboardMarkup {
+  inline_keyboard: InlineKeyboardButton[][];
+}
+
+/**
+ * Callback query - triggered when user taps an inline keyboard button
+ */
+export interface CallbackQuery {
+  id: string;
+  from: TelegramUser;
+  message?: TelegramMessage;
+  chat_instance: string;
+  data?: string;
+}
+
 export interface TelegramUpdate {
   update_id: number;
   message?: TelegramMessage;
   edited_message?: TelegramMessage;
+  callback_query?: CallbackQuery;
 }
 
 export interface TelegramResponse<T> {
@@ -109,6 +138,7 @@ export class TelegramBot {
     parse_mode?: 'HTML' | 'Markdown' | 'MarkdownV2';
     disable_notification?: boolean;
     reply_to_message_id?: number;
+    reply_markup?: InlineKeyboardMarkup;
   } = {}): Promise<TelegramMessage> {
     // Telegram has a 4096 character limit per message
     const MAX_LENGTH = 4000; // Leave some buffer
@@ -172,7 +202,7 @@ export class TelegramBot {
       offset: options.offset ?? this.lastUpdateId + 1,
       limit: options.limit ?? 100,
       timeout: options.timeout ?? 30, // Long polling timeout in seconds
-      allowed_updates: options.allowed_updates ?? ['message'],
+      allowed_updates: options.allowed_updates ?? ['message', 'callback_query'],
     });
 
     // Track the last update ID
@@ -209,6 +239,41 @@ export class TelegramBot {
    */
   async setMyCommands(commands: { command: string; description: string }[]): Promise<boolean> {
     return this.request<boolean>('setMyCommands', { commands });
+  }
+
+  /**
+   * Answer a callback query (acknowledge inline button press)
+   * Shows a toast notification to the user
+   */
+  async answerCallbackQuery(
+    callbackQueryId: string,
+    options?: { text?: string; show_alert?: boolean }
+  ): Promise<boolean> {
+    return this.request<boolean>('answerCallbackQuery', {
+      callback_query_id: callbackQueryId,
+      ...options,
+    });
+  }
+
+  /**
+   * Edit the text of a previously sent message
+   * Used to update message content after inline button press
+   */
+  async editMessageText(
+    chatId: number | string,
+    messageId: number,
+    text: string,
+    options?: {
+      parse_mode?: 'HTML' | 'Markdown' | 'MarkdownV2';
+      reply_markup?: InlineKeyboardMarkup;
+    }
+  ): Promise<TelegramMessage | boolean> {
+    return this.request<TelegramMessage | boolean>('editMessageText', {
+      chat_id: chatId,
+      message_id: messageId,
+      text,
+      ...options,
+    });
   }
 }
 
